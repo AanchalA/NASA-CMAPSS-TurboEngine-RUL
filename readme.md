@@ -16,3 +16,19 @@ NASA's C-MAPSS Turbofan Engine Degradation dataset contains **run-to-failure tim
 - test engines stop before failure, 
 - and the task is to predict how many operational cycles remain.
 The raw data has multiple engine trajectories, operational conditions, sensor noise, and degradation over time. NASA provides four subsets with different combinations of operating conditions and fault modes.
+
+## Local MLflow configuration
+
+The prototype uses MLflow directly with local file-backed storage; no tracking server is required.
+
+```text
+MLFLOW_TRACKING_URI=file:./mlruns
+CMAPSS_MLFLOW_EXPERIMENT=cmapss-preprocessing
+```
+
+Both values can be overridden through environment variables. Preprocessing artifacts use these stable paths within each MLflow run:
+
+```text
+preprocessing_pipeline/
+preprocessing_state.json
+```
