@@ -1,6 +1,6 @@
 import argparse
 
-from src.tracking.fetch_id import fetch_preprocessing_run_id
+from src.tracking.mlflow_run_id import fetch_run_id
 from src.training.test_evaluation import evaluate_test_data
 from src.training.train import train_random_forest
 
@@ -13,7 +13,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def run_random_forest_baseline(subset_id, preprocessing_run_id, 
+def run_random_forest_baseline(subset_id, preprocessing_run_id,
                                processed_data_dir, raw_data_dir, parameters=None):
     
     training_run_id = train_random_forest(subset_id=subset_id, 
@@ -40,7 +40,7 @@ if __name__ == "__main__":
                         "n_jobs": -1}
     
     result = run_random_forest_baseline(subset_id=args.subset_id,
-                                        preprocessing_run_id=fetch_preprocessing_run_id(args.subset_id),
+                                        preprocessing_run_id=fetch_run_id(args.subset_id),
                                         processed_data_dir=args.processed_data_dir,
                                         raw_data_dir=args.raw_data_dir,
                                         parameters=model_parameters)

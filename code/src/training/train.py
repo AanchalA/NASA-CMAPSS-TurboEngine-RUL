@@ -7,7 +7,7 @@ import mlflow
 import mlflow.sklearn as mlflow_sklearn
 from sklearn.ensemble import RandomForestRegressor
 
-from src.data_processing.schema import SUPPORTED_SUBSETS
+from src.data_processing import SUPPORTED_SUBSETS
 from src.training.model_evaluation_metrics import evaluate_predictions
 from src.tracking import configure_mlflow, load_preprocessing_state
 

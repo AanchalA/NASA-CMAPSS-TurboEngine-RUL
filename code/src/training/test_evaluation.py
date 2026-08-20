@@ -5,7 +5,7 @@ from mlflow import MlflowClient
 import mlflow.sklearn as mlflow_sklearn
 
 from src.tracking import configure_mlflow
-from src.data_processing.schema import SUPPORTED_SUBSETS
+from src.data_processing import SUPPORTED_SUBSETS
 from src.training.model_evaluation_metrics import evaluate_predictions
 
 
