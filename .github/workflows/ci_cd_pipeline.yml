@@ -1,0 +1,49 @@
+name: Model Training CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "ci-cd-setup", "model-training", "main" ]
+  pull_request:
+    branches: [ "ci-cd-setup", "model-training", "main" ]
+
+jobs:
+  train-and-track:
+    name: Train Model & Log Experiments
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Install uv Package Manager
+      uses: astral-sh/setup-uv@v3
+      with:
+        enable-cache: true
+        version: "latest"
+
+    - name: Set up Python Environment
+      run: uv python install 3.10
+
+    - name: Sync Dependencies from pyproject.toml / uv.lock
+      run: |
+        # Synchronizes exact lockfile dependencies including MLflow, Airflow, and training packages
+        uv sync --all-extras --dev || uv pip install -e .
+
+    - name: Execute Model Training
+      run: |
+        # Runs training inside the isolated environment managed by uv
+        uv run python train.py
+
+    - name: Upload MLflow & Model Artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: training-artifacts
+        path: |
+          mlruns/
+          models/
+          *.h5
+          *.pt
+          *.pkl
+          *.onnx
+        if-no-files-found: ignore
