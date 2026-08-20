@@ -5,6 +5,7 @@ from src.tracking.mlflow_tracking import (
     log_preprocessing_model,
     log_preprocessing_state,
 )
+from src.tracking.mlflow_run_id import fetch_run_id
 
 
 __all__ = (
@@ -13,4 +14,5 @@ __all__ = (
     "load_preprocessing_state",
     "log_preprocessing_model",
     "log_preprocessing_state",
+    "fetch_run_id",
 )

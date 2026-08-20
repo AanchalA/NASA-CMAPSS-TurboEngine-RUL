@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 from datetime import datetime, timedelta
 import os
 from pathlib import Path
@@ -8,27 +7,11 @@ from pathlib import Path
 from airflow.sdk import Param, dag, get_current_context, task
 
 from src.dags import get_preprocessing_runtime
+from build_spark import spark_session_context
 
 
 DAG_ID = "cmapss_preprocessing"
 SUBSETS = ("FD001", "FD002", "FD003", "FD004")
-
-
-@contextmanager
-def spark_session_context(spark_master, subset):
-    from pyspark.sql import SparkSession
-
-    spark = None
-    try:
-        spark = (SparkSession.builder.master(spark_master)
-                 .appName(f"cmapss-preprocessing-{subset}")
-                 .config("spark.ui.enabled", "false")
-                 .getOrCreate())
-        spark.sparkContext.setLogLevel("WARN")
-        yield spark
-    finally:
-        if spark is not None:
-            spark.stop()
 
 
 @dag(dag_id=DAG_ID,
@@ -68,7 +51,7 @@ def cmapss_preprocessing_dag():
         os.environ["MLFLOW_TRACKING_URI"] = runtime["mlflow_tracking_uri"]
         os.environ["CMAPSS_MLFLOW_EXPERIMENT"] = runtime["mlflow_experiment"]
 
-        with spark_session_context("local[*]", subset) as spark:
+        with spark_session_context(app_name=f"cmapss-preprocessing-{subset}") as spark:
             result = run_subset_preprocessing(spark=spark,
                                               subset=subset,
                                               raw_data_dir=Path(runtime["raw_data_dir"]),

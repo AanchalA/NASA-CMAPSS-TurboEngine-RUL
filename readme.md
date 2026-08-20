@@ -17,21 +17,30 @@ NASA's C-MAPSS Turbofan Engine Degradation dataset contains **run-to-failure tim
 - and the task is to predict how many operational cycles remain.
 The raw data has multiple engine trajectories, operational conditions, sensor noise, and degradation over time. NASA provides four subsets with different combinations of operating conditions and fault modes.
 
-## Run preprocessing with Airflow
+## Project Setup
 
-Prerequisites: Linux or WSL, Python 3.12, Java 17+, and `uv`. Extract `CMAPSSData.zip` into `Data/CMAPSSData`.
+Prerequisites: Linux or WSL, Python 3.12, Java 17+, and `uv`. 
 
 Install the project dependencies:
-
 ```bash
-cd /path/to/nasa_c_mapss
+cd nasa_c_mapss
 uv sync
 ```
+
+In every new terminal first run:
+```bash
+cd nasa_c_mapss
+source .venv/bin/activate
+export PYTHONPATH="$PWD/code"
+```
+
+## Run preprocessing with Airflow
+
+Extract `CMAPSSData.zip` into `Data/CMAPSSData`.
 
 Configure the DAG folder once from the repository root:
 
 ```bash
-source .venv/bin/activate
 export AIRFLOW_HOME="$PWD/.airflow"
 airflow db migrate
 sed -i "s|^dags_folder = .*|dags_folder = $PWD/code/src/dags|" "$AIRFLOW_HOME/airflow.cfg"
@@ -41,16 +50,12 @@ Start Airflow:
 
 ```bash
 export AIRFLOW_HOME="$PWD/.airflow"
-export PYTHONPATH="$PWD/code"
 airflow standalone
 ```
 
 In a second terminal, trigger preprocessing:
 
 ```bash
-cd /path/to/nasa_c_mapss
-source .venv/bin/activate
-export PYTHONPATH="$PWD/code"
 export AIRFLOW_HOME="$PWD/.airflow"
 
 airflow dags list-import-errors
@@ -59,20 +64,16 @@ airflow dags trigger --conf '{"subset":"ALL"}' cmapss_preprocessing
 airflow dags list-runs cmapss_preprocessing
 ```
 
-Use `FD001`, `FD002`, `FD003`, or `FD004` instead of `ALL` to process one subset. Processed Parquet data is written to `Data/processed/<subset>` and preprocessing runs are recorded in `mlruns`.
+Use `FD001`, `FD002`, `FD003`, or `FD004` instead of `ALL` to process one subset. Processed Parquet data is written to `Data/processed/<subset>` and preprocessing runs are recorded in `mlruns` under `cmapss-preprocessing`.
 
-## Local MLflow configuration
+## Run model training
 
-The prototype uses MLflow directly with local file-backed storage; no tracking server is required.
+Run preprocessing first. Then, from the repository root:
 
-```text
-MLFLOW_TRACKING_URI=file:./mlruns
-CMAPSS_MLFLOW_EXPERIMENT=cmapss-preprocessing
+Run the Random Forest baseline, replacing `FD001` with the subset you want to train:
+
+```bash
+python code/src/training/run_training.py --subset-id FD001
 ```
 
-Both values can be overridden through environment variables. Preprocessing artifacts use these stable paths within each MLflow run:
-
-```text
-preprocessing_pipeline/
-preprocessing_state.json
-```
+The command trains on the processed data, evaluates validation and official test RUL, and records the model and metrics in MLflow.
