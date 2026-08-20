@@ -8,4 +8,12 @@ wheels/
 
 # Virtual environments
 .venv
-Data/
+mlruns/
+Notes/
+notebooks/
+tests/
+Data/CMAPSSData.zip
+
+*:Zone.Identifier
+
+.airflow/
