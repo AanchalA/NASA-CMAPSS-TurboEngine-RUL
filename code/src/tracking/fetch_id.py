@@ -20,7 +20,7 @@ def fetch_preprocessing_run_id(subset_id):
         raise ValueError(f"MLflow experiment not found: {experiment_name}")
 
     runs = client.search_runs(experiment_ids=[experiment.experiment_id],
-                              filter_string=("attributes.status = 'FINISHED' AND params.subset = '{normalized_subset}'"),
+                              filter_string=(f"attributes.status = 'FINISHED' AND params.subset = '{normalized_subset}'"),
                               order_by=["start_time DESC"],
                               max_results=1)
     

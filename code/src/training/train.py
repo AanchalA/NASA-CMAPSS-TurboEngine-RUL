@@ -1,4 +1,5 @@
 import json
+import pandas as pd
 from os import getenv
 from pathlib import Path
 
@@ -7,12 +8,11 @@ import mlflow.sklearn as mlflow_sklearn
 from sklearn.ensemble import RandomForestRegressor
 
 from src.data_processing.schema import SUPPORTED_SUBSETS
-from src.training.model_input import build_tabular_inputs
 from src.training.model_evaluation_metrics import evaluate_predictions
 from src.tracking import configure_mlflow, load_preprocessing_state
 
 
-def train_random_forest(spark, subset_id, preprocessing_run_id, processed_data_dir, parameters=None):
+def train_random_forest(subset_id, preprocessing_run_id, processed_data_dir, parameters=None):
     normalized_subset = subset_id.upper()
     if normalized_subset not in SUPPORTED_SUBSETS:
         raise ValueError(f"unsupported C-MAPSS subset: {subset_id}")
@@ -23,11 +23,11 @@ def train_random_forest(spark, subset_id, preprocessing_run_id, processed_data_d
     feature_columns = list(artifacts.retained_sensor_columns)
     subset_path = Path(processed_data_dir) / normalized_subset
 
-    train_dataframe = spark.read.parquet(str(subset_path / "train"))
-    validation_dataframe = spark.read.parquet(str(subset_path / "validation"))
-    
-    X_train, y_train, _ = build_tabular_inputs(train_dataframe, feature_columns)    
-    X_validation, y_validation, _ = build_tabular_inputs(validation_dataframe, feature_columns)
+    train_dataframe = pd.read_parquet(subset_path / "train")
+    validation_dataframe = pd.read_parquet(subset_path / "validation")
+     
+    X_train, y_train = train_dataframe.loc[:, feature_columns], train_dataframe.loc[:, "RUL"]
+    X_validation, y_validation = validation_dataframe.loc[:, feature_columns], validation_dataframe.loc[:, "RUL"]
 
     model = RandomForestRegressor(**(parameters or {}))
     

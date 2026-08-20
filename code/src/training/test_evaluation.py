@@ -1,18 +1,37 @@
+import json
+import pandas as pd
 from pathlib import Path
-
-import mlflow.sklearn as mlflow_sklearn
 from mlflow import MlflowClient
-from pyspark.sql import Window, functions as F
+import mlflow.sklearn as mlflow_sklearn
 
-from src.data_processing.data_loader import load_cmapss_test_rul
-from src.data_processing.schema import FINAL_OBSERVED_RUL_COLUMN, SUPPORTED_SUBSETS
-from src.data_processing.validation import validate_test_target_inputs
+from src.data_processing.schema import SUPPORTED_SUBSETS
 from src.tracking import configure_mlflow, load_preprocessing_state
 from src.training.model_evaluation_metrics import evaluate_predictions
-from src.training.model_input import build_tabular_inputs
 
 
-def evaluate_test_data(spark, subset_id, training_run_id, processed_data_dir, raw_data_dir):
+def prepare_test_data(subset_id, feature_columns, processed_data_dir, raw_data_dir):
+
+    test_dataframe = pd.read_parquet(Path(processed_data_dir) / subset_id / "test")
+
+    final_cycle_rows = (test_dataframe
+                        .sort_values(["unit_id", "cycle"])
+                        .groupby("unit_id", sort=True).tail(1)
+                        .sort_values("unit_id").reset_index(drop=True))
+
+    official_rul = pd.read_csv(Path(raw_data_dir) / f"RUL_{subset_id}.txt", sep=r"\s+", header=None, names=["RUL"])
+    official_rul.insert(0, "unit_id", range(1, len(official_rul) + 1))
+
+    final_cycle_rows = (final_cycle_rows
+                        .drop(columns=["RUL"], errors="ignore")
+                        .merge(official_rul, on="unit_id", how="inner", validate="one_to_one"))
+
+    X_test = final_cycle_rows.loc[:, feature_columns]
+    y_test = final_cycle_rows.loc[:, "RUL"]
+
+    return X_test, y_test
+
+
+def evaluate_test_data(subset_id, training_run_id, processed_data_dir, raw_data_dir):
     
     normalized_subset = subset_id.upper()
     if normalized_subset not in SUPPORTED_SUBSETS:
@@ -27,24 +46,11 @@ def evaluate_test_data(spark, subset_id, training_run_id, processed_data_dir, ra
         raise ValueError(f"training run subset {training_subset} does not match {normalized_subset}")
 
     preprocessing_run_id = training_run.data.params["preprocessing_run_id"]
+    feature_columns = json.loads(training_run.data.params["feature_names"])    
     
-    artifacts = load_preprocessing_state(preprocessing_run_id)
-    feature_columns = list(artifacts.retained_sensor_columns)
-    test_dataframe = spark.read.parquet(str(Path(processed_data_dir) / normalized_subset / "test"))
+    X_test, y_test = prepare_test_data(subset_id=normalized_subset, feature_columns=feature_columns,
+                                       processed_data_dir=processed_data_dir, raw_data_dir=raw_data_dir)
     
-    official_rul = load_cmapss_test_rul(spark, Path(raw_data_dir) / f"RUL_{normalized_subset}.txt")
-    
-    validate_test_target_inputs(test_dataframe.drop("RUL"), official_rul)
-
-    final_cycle_window = Window.partitionBy("unit_id").orderBy(F.desc("cycle"))
-    final_cycle_rows = (test_dataframe.withColumn("cycle_rank", F.row_number().over(final_cycle_window))
-                        .where(F.col("cycle_rank") == 1)
-                        .drop("cycle_rank", "RUL")
-                        .join(official_rul, on="unit_id", how="inner")
-                        .withColumnRenamed(FINAL_OBSERVED_RUL_COLUMN, "RUL")
-                        .orderBy("unit_id"))
-
-    X_test, y_test, _ = build_tabular_inputs(final_cycle_rows, feature_columns)
     model = mlflow_sklearn.load_model(f"runs:/{training_run_id}/model")
     metrics = evaluate_predictions(y_test, model.predict(X_test))
 
