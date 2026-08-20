@@ -13,6 +13,7 @@ class PreprocessingArtifacts:
 
     def __post_init__(self):
         retained = self.retained_sensor_columns
+        
         if len(retained) != len(set(retained)):
             raise ValueError("retained_sensor_columns must not contain duplicates")
 

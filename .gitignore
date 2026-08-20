@@ -15,3 +15,5 @@ tests/
 Data/CMAPSSData.zip
 
 *:Zone.Identifier
+
+.airflow/
