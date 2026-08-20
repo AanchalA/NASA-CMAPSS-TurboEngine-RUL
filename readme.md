@@ -77,3 +77,62 @@ python code/src/training/run_training.py --subset-id FD001
 ```
 
 The command trains on the processed data, evaluates validation and official test RUL, and records the model and metrics in MLflow.
+
+## Run model serving
+
+Complete preprocessing and model training for the subset first. From the repository root, start the API:
+
+```bash
+uv run uvicorn api.app:app --app-dir code --host 0.0.0.0 --port 8000
+```
+
+Verify that the API and Spark are ready:
+
+```bash
+curl http://localhost:8000/health
+```
+
+Send one complete engine trajectory to the latest matching trained model:
+
+```bash
+curl -X POST http://localhost:8000/predict \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "subset_id": "FD004",
+    "model_type": "RandomForestRegressor",
+    "observations": [
+      {
+        "unit_id": 1,
+        "cycle": 1,
+        "setting_1": 0.0,
+        "setting_2": 0.0,
+        "setting_3": 100.0,
+        "sensor_1": 0.0,
+        "sensor_2": 0.0,
+        "sensor_3": 0.0,
+        "sensor_4": 0.0,
+        "sensor_5": 0.0,
+        "sensor_6": 0.0,
+        "sensor_7": 0.0,
+        "sensor_8": 0.0,
+        "sensor_9": 0.0,
+        "sensor_10": 0.0,
+        "sensor_11": 0.0,
+        "sensor_12": 0.0,
+        "sensor_13": 0.0,
+        "sensor_14": 0.0,
+        "sensor_15": 0.0,
+        "sensor_16": 0.0,
+        "sensor_17": 0.0,
+        "sensor_18": 0.0,
+        "sensor_19": 0.0,
+        "sensor_20": 0.0,
+        "sensor_21": 0.0
+      }
+    ]
+  }'
+```
+
+Include every observed cycle for one engine in `observations`. 
+
+The API resolves the latest completed training run for the requested subset and model type.
