@@ -4,8 +4,8 @@ from pathlib import Path
 from mlflow import MlflowClient
 import mlflow.sklearn as mlflow_sklearn
 
+from src.tracking import configure_mlflow
 from src.data_processing.schema import SUPPORTED_SUBSETS
-from src.tracking import configure_mlflow, load_preprocessing_state
 from src.training.model_evaluation_metrics import evaluate_predictions
 
 
@@ -43,9 +43,8 @@ def evaluate_test_data(subset_id, training_run_id, processed_data_dir, raw_data_
     training_run = client.get_run(training_run_id)
     training_subset = training_run.data.params["subset"]
     if training_subset != normalized_subset:
-        raise ValueError(f"training run subset {training_subset} does not match {normalized_subset}")
-
-    preprocessing_run_id = training_run.data.params["preprocessing_run_id"]
+        raise ValueError(f"training run ({training_run_id}) subset {training_subset} does not match {normalized_subset}")
+    
     feature_columns = json.loads(training_run.data.params["feature_names"])    
     
     X_test, y_test = prepare_test_data(subset_id=normalized_subset, feature_columns=feature_columns,
