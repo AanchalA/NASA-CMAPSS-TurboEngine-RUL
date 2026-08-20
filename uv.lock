@@ -2748,6 +2748,7 @@ dependencies = [
     { name = "nbclient" },
     { name = "pandas" },
     { name = "pyspark" },
+    { name = "scikit-learn" },
     { name = "scipy" },
     { name = "seaborn" },
 ]
@@ -2762,6 +2763,7 @@ requires-dist = [
     { name = "nbclient", specifier = ">=0.11.0" },
     { name = "pandas", specifier = ">=2.2,<3" },
     { name = "pyspark", specifier = ">=4.0.1" },
+    { name = "scikit-learn", specifier = ">=1.8.0" },
     { name = "scipy", specifier = ">=1.18.0" },
     { name = "seaborn", specifier = ">=0.13.2" },
 ]

@@ -7,11 +7,11 @@ from pathlib import Path
 
 from airflow.sdk import Param, dag, get_current_context, task
 
+from src.dags import get_preprocessing_runtime
+
 
 DAG_ID = "cmapss_preprocessing"
 SUBSETS = ("FD001", "FD002", "FD003", "FD004")
-ALL_SUBSETS = "ALL"
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 @contextmanager
@@ -37,33 +37,25 @@ def spark_session_context(spark_master, subset):
     start_date=datetime(2026, 1, 1),
     catchup=False,
     params={"subset": Param("FD001", type="string",
-                            enum=[*SUBSETS, ALL_SUBSETS],
+                            enum=[*SUBSETS, "ALL"],
                             description="C-MAPSS subset to process, or ALL")},
     default_args={"retries": 1, "retry_delay": timedelta(minutes=2)},
     tags=["cmapss", "preprocessing", "spark", "mlflow"])
 def cmapss_preprocessing_dag():
     
     @task
-    def resolve_runtime():     
-           
-        raw_data_dir = Path(os.environ.get("CMAPSS_RAW_DATA_DIR", PROJECT_ROOT / "Data" / "CMAPSSData")).expanduser().resolve()
-        if not raw_data_dir.is_dir():
-            raise FileNotFoundError(f"C-MAPSS raw data directory not found: {raw_data_dir}")
-
-        processed_data_dir = Path(os.environ.get("CMAPSS_PROCESSED_DATA_DIR", PROJECT_ROOT / "Data" / "processed")).expanduser().resolve()
-        tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", (PROJECT_ROOT / "mlruns").as_uri())
-        experiment = os.environ.get("CMAPSS_MLFLOW_EXPERIMENT", "cmapss-preprocessing")
-
-        return {"raw_data_dir": str(raw_data_dir),
-                "processed_data_dir": str(processed_data_dir),
-                "mlflow_tracking_uri": tracking_uri,
-                "mlflow_experiment": experiment}
+    def resolve_runtime():
+        return get_preprocessing_runtime()
 
     @task
-    def select_subsets(runtime):        
-        del runtime  
-        requested = str(get_current_context()["params"]["subset"]).upper()
-        if requested == ALL_SUBSETS:
+    def select_subsets(runtime):
+        del runtime
+        params = get_current_context().get("params")
+        if params is None:
+            raise RuntimeError("Airflow task context is missing DAG parameters")
+
+        requested = str(params["subset"]).upper()
+        if requested == "ALL":
             return list(SUBSETS)
         if requested not in SUBSETS:
             raise ValueError(f"Unsupported C-MAPSS subset: {requested}")
