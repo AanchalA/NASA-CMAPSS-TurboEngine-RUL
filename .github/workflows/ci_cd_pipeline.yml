@@ -22,7 +22,7 @@ jobs:
         version: "latest"
 
     - name: Set up Python Environment
-      run: uv python install 3.10
+      run: uv python install 3.12
 
     - name: Sync Dependencies from pyproject.toml / uv.lock
       run: |
