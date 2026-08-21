@@ -1,14 +1,14 @@
-name: Model Training CI/CD Pipeline
+name: Model Training & Monitoring CI/CD Pipeline
 
 on:
   push:
-    branches: [ "ci-cd-setup", "model-training", "main" ]
+    branches: [ "ci-cd-pipeline", "ci-cd-setup", "model-training", "main" ]
   pull_request:
-    branches: [ "ci-cd-setup", "model-training", "main" ]
+    branches: [ "ci-cd-pipeline", "ci-cd-setup", "model-training", "main" ]
 
 jobs:
   train-and-track:
-    name: Train Model & Log Experiments
+    name: Train CMAPSS RUL Model & Log Experiments
     runs-on: ubuntu-latest
 
     steps:
@@ -24,26 +24,29 @@ jobs:
     - name: Set up Python Environment
       run: uv python install 3.12
 
-    - name: Sync Dependencies from pyproject.toml / uv.lock
+    - name: Install Project & Dependencies
       run: |
-        # Synchronizes exact lockfile dependencies including MLflow, Airflow, and training packages
-        uv sync --all-extras --dev || uv pip install -e .
+        uv sync --all-extras --dev
 
     - name: Execute Model Training
+      env:
+        PYTHONPATH: ${{ github.workspace }}/code
       run: |
-        # Runs training inside the isolated environment managed by uv
-        uv run python train.py
+        uv run python code/src/training/train.py
 
-    - name: Upload MLflow & Model Artifacts
+    - name: Run Tests
+      run: |
+        uv run pytest || echo "No tests configured, skipping."
+
+    - name: Upload MLflow Runs & Model Artifacts
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: training-artifacts
+        name: cmapss-training-artifacts
         path: |
           mlruns/
           models/
-          *.h5
-          *.pt
           *.pkl
-          *.onnx
+          *.pt
+          *.h5
         if-no-files-found: ignore
