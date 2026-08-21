@@ -29,6 +29,8 @@ jobs:
         uv sync --all-extras --dev
 
     - name: Execute Model Training
+      env:
+        PYTHONPATH: code
       run: |
         uv run python code/src/training/train.py
 
