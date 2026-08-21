@@ -49,6 +49,7 @@ sed -i "s|^dags_folder = .*|dags_folder = $PWD/code/src/dags|" "$AIRFLOW_HOME/ai
 Start Airflow:
 
 ```bash
+export PYTHONPATH="$PWD/code"
 export AIRFLOW_HOME="$PWD/.airflow"
 airflow standalone
 ```
@@ -56,9 +57,11 @@ airflow standalone
 In a second terminal, trigger preprocessing:
 
 ```bash
+export PYTHONPATH="$PWD/code"
 export AIRFLOW_HOME="$PWD/.airflow"
 
 airflow dags list-import-errors
+airflow dags list
 airflow dags unpause cmapss_preprocessing
 airflow dags trigger --conf '{"subset":"ALL"}' cmapss_preprocessing
 airflow dags list-runs cmapss_preprocessing
@@ -80,19 +83,43 @@ The command trains on the processed data, evaluates validation and official test
 
 ## Run model serving
 
-Complete preprocessing and model training for the subset first. From the repository root, start the API:
+The `mlruns/` directory must contain completed preprocessing and training runs for the requested subset.
+
+### Run locally
 
 ```bash
-uv run uvicorn api.app:app --app-dir code --host 0.0.0.0 --port 8000
+export MLFLOW_TRACKING_URI="file://$PWD/mlruns"
+uvicorn api.app:app --app-dir code --host 0.0.0.0 --port 8000
 ```
 
-Verify that the API and Spark are ready:
+### Run with Docker
+
+Docker is the only additional prerequisite. From the repository root:
+
+```bash
+docker build -f Dockerfile.serve -t nasa-cmapss-api .
+
+docker run --rm \
+  -p 8000:8000 \
+  -v "$PWD/mlruns:/app/mlruns:ro" \
+  nasa-cmapss-api
+```
+
+The container mounts `mlruns/` read-only. It does not require the dataset, Java, or Spark.
+
+### Verify
 
 ```bash
 curl http://localhost:8000/health
 ```
 
-Send one complete engine trajectory to the latest matching trained model:
+Expected response:
+
+```json
+{"status":"ok"}
+```
+
+Send one or more observations for one engine. All settings and sensor fields are required; when multiple cycles are supplied, the latest cycle is used.
 
 ```bash
 curl -X POST http://localhost:8000/predict \
@@ -133,6 +160,4 @@ curl -X POST http://localhost:8000/predict \
   }'
 ```
 
-Include every observed cycle for one engine in `observations`. 
-
-The API resolves the latest completed training run for the requested subset and model type.
+The API resolves the latest matching MLflow training run and returns `predicted_rul`.

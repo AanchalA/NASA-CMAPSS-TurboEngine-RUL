@@ -1,7 +1,7 @@
 from pyspark.sql import Window, functions as F
 from pyspark.sql.types import IntegralType, NumericType
 
-from src.data_processing.schema import CMAPSS_COLUMNS, FINAL_OBSERVED_RUL_COLUMN
+from src.data_processing.constants import CMAPSS_COLUMNS, FINAL_OBSERVED_RUL_COLUMN
 
 
 def validate_cmapss_data(df):    

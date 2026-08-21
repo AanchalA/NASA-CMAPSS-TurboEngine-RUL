@@ -4,7 +4,8 @@ from os import fspath
 from pyspark.sql.types import IntegerType
 from pyspark.sql import Window, functions as F
 
-from src.data_processing.schema import CMAPSS_SCHEMA, FINAL_OBSERVED_RUL_COLUMN, TEST_RUL_SCHEMA
+from src.data_processing.constants import FINAL_OBSERVED_RUL_COLUMN
+from src.data_processing.schema import CMAPSS_SCHEMA, TEST_RUL_SCHEMA
 from src.data_processing.validation import validate_test_target_inputs
 
 
@@ -14,6 +15,7 @@ def load_cmapss_raw(spark, path):
     
     tokens = F.split(F.trim(F.col("value")), r"\s+")
     raw_lines = spark.read.text(fspath(path))
+    
     return raw_lines.select(*(tokens[index].cast(field.dataType).alias(field.name)
             for index, field in enumerate(CMAPSS_SCHEMA.fields)))   
 
@@ -31,12 +33,22 @@ def load_cmapss_test_rul(spark, path):
     records: list[tuple[int, int]] = []
             
     lines = target_path.read_text(encoding="utf-8").splitlines()    
-    for _, line in enumerate(lines, start=1):
+    for line_number, line in enumerate(lines, start=1):
+        
         tokens = line.split()        
         if not tokens:
             continue                      
-        
-        records.append((len(records) + 1, int(tokens[0])))
+
+        if len(tokens) != 1:
+            raise ValueError(f"CMAPSS test RUL line {line_number} expected exactly one value")
+        try:
+            final_rul = int(tokens[0])
+        except ValueError as error:
+            raise ValueError(f"CMAPSS test RUL line {line_number} expected an integer") from error
+        if final_rul < 0:
+            raise ValueError(f"CMAPSS test RUL line {line_number} must be non-negative")
+
+        records.append((len(records) + 1, final_rul))
         
     if not records:
         raise ValueError("CMAPSS test RUL file contains no target records")

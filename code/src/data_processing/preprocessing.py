@@ -8,7 +8,8 @@ from pyspark.ml import Pipeline, PipelineModel
 from pyspark.ml.feature import StandardScaler, VectorAssembler
 from pyspark.sql import functions as F
 
-from src.tracking import configure_mlflow, log_preprocessing_model, log_preprocessing_state
+from src.tracking import configure_mlflow, log_preprocessing_state
+from src.tracking.spark_mlflow_tracking import log_preprocessing_model
 
 from src.data_processing.artifacts import PreprocessingArtifacts
 from src.data_processing.feature_engineering import (assign_operating_regimes, 
@@ -18,8 +19,9 @@ from src.data_processing.feature_engineering import (assign_operating_regimes,
 from src.data_processing.scaling import (RegimeSensorScaler, 
                                          apply_global_sensor_scaler, 
                                          apply_sensor_scaler, 
-                                         fit_regime_sensor_scaler)
-from src.data_processing import schema
+                                         fit_regime_sensor_scaler,
+                                         global_sensor_scaler_from_model)
+from src.data_processing.constants import CMAPSS_SENSOR_COLUMNS, SUPPORTED_SUBSETS
 from src.data_processing.split import split_train_validation_by_unit
 from src.data_processing.validation import validate_cmapss_data
 from src.data_processing.data_loader import add_test_rul_target, load_cmapss_test_rul, add_rul_target, load_cmapss_raw
@@ -80,6 +82,9 @@ def finalize_preprocessing_output(df, sensor_columns):
 def run_subset_preprocessing(spark, subset, raw_data_dir, output_dir, validation_fraction=0.2, seed=42):
     
     normalized_subset = subset.upper()
+    if normalized_subset not in SUPPORTED_SUBSETS:
+        raise ValueError(f"unsupported C-MAPSS subset: {subset}")
+
     train_path, test_path, test_rul_path = input_paths(raw_data_dir, normalized_subset)
     validate_input_paths((train_path, test_path, test_rul_path))
     subset_output = Path(fspath(output_dir)) / normalized_subset
@@ -108,12 +113,13 @@ def run_subset_preprocessing(spark, subset, raw_data_dir, output_dir, validation
         
         selected_train = drop_feature_columns(assigned_train, dropped_columns).cache()
         
-        sensor_columns = tuple(column for column in schema.CMAPSS_SENSOR_COLUMNS if column in selected_train.columns)
+        sensor_columns = tuple(column for column in CMAPSS_SENSOR_COLUMNS if column in selected_train.columns)
 
         if normalized_subset in ["FD001", "FD003"]:
             sensor_scaler = Pipeline(stages=[
                 VectorAssembler(inputCols=list(sensor_columns), outputCol="assembled_sensor_features"),
-                StandardScaler(inputCol="assembled_sensor_features", outputCol="scaled_sensor_features", withMean=True, withStd=True)]).fit(selected_train)
+                StandardScaler(inputCol="assembled_sensor_features", outputCol="scaled_sensor_features",
+                               withMean=True, withStd=True)]).fit(selected_train)
             scaling_strategy = "global"
         else:
             sensor_scaler = fit_regime_sensor_scaler(selected_train, sensor_columns)
@@ -122,7 +128,9 @@ def run_subset_preprocessing(spark, subset, raw_data_dir, output_dir, validation
         artifacts = PreprocessingArtifacts(regime_mapping=regime_mapping, 
                                            dropped_feature_columns=dropped_columns, 
                                            retained_sensor_columns=sensor_columns,
-                                           regime_sensor_scaler=(sensor_scaler if isinstance(sensor_scaler, RegimeSensorScaler) else None))
+                                           regime_sensor_scaler=(sensor_scaler if isinstance(sensor_scaler, RegimeSensorScaler) else None),
+                                           global_sensor_scaler=(global_sensor_scaler_from_model(sensor_scaler, sensor_columns)
+                                                                 if isinstance(sensor_scaler, PipelineModel) else None))
 
         processed_frames = []
         try:
