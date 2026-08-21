@@ -101,7 +101,8 @@ docker build -f Dockerfile.serve -t nasa-cmapss-api .
 
 docker run --rm \
   -p 8000:8000 \
-  -v "$PWD/mlruns:/app/mlruns:ro" \
+  -e MLFLOW_TRACKING_URI="file://$PWD/mlruns" \
+  -v "$PWD/mlruns:$PWD/mlruns:ro" \
   nasa-cmapss-api
 ```
 
@@ -125,7 +126,7 @@ Send one or more observations for one engine. All settings and sensor fields are
 curl -X POST http://localhost:8000/predict \
   -H 'Content-Type: application/json' \
   -d '{
-    "subset_id": "FD004",
+    "subset_id": "FD002",
     "model_type": "RandomForestRegressor",
     "observations": [
       {
