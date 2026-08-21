@@ -30,7 +30,7 @@ jobs:
 
     - name: Execute Model Training
       env:
-        PYTHONPATH: code
+        PYTHONPATH: ${{ github.workspace }}/code
       run: |
         uv run python code/src/training/train.py
 
