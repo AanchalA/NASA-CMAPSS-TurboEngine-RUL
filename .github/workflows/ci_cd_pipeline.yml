@@ -8,6 +8,7 @@ on:
       - model-training
       - model-deployment
       - actions-logging-monitoring
+      - time-series-processing-and-modeling-experiments
   pull_request:
     branches:
       - main
@@ -15,6 +16,7 @@ on:
       - model-training
       - model-deployment
       - actions-logging-monitoring
+      - time-series-processing-and-modeling-experiments
 
 jobs:
   test:
@@ -29,8 +31,7 @@ jobs:
       uses: astral-sh/setup-uv@v9.0.0
       with:        
         python-version: "3.12"
-        enable-cache: true
-        cache-python: true
+        enable-cache: true        
         cache-dependency-glob: |
           pyproject.toml
           uv.lock

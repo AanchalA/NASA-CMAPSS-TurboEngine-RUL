@@ -14,8 +14,6 @@ from mlflow import MlflowClient
 from sklearn.ensemble import RandomForestRegressor
 
 
-from src.data_processing.artifacts import PreprocessingArtifacts
-from src.tracking.mlflow_tracking import configure_mlflow, log_preprocessing_state
 from src.training.run_training import run_random_forest_baseline
 from src.training.train import train_random_forest
 
@@ -30,35 +28,39 @@ class RandomForestTrainingTests(unittest.TestCase):
                 "CMAPSS_MLFLOW_TRAINING_EXPERIMENT": "training-test",
             },
         ):
-            configure_mlflow()
-            with mlflow.start_run() as preprocessing_run:
-                log_preprocessing_state(
-                    PreprocessingArtifacts(
-                        regime_mapping={(0.0, 0.0, 100.0): 1},
-                        dropped_feature_columns=("sensor_1",),
-                        retained_sensor_columns=("sensor_2", "sensor_3"),
-                    )
-                )
-
             processed_data_dir = Path(directory) / "processed"
             (processed_data_dir / "FD002").mkdir(parents=True)
-            columns = ["unit_id", "cycle", "RUL", "sensor_2", "sensor_3"]
+            columns = [
+                "unit_id",
+                "cycle",
+                "RUL",
+                "operating_regime",
+                "sensor_2",
+                "sensor_3",
+                "sensor_2_lag_1",
+                "sensor_3_ewma",
+            ]
             pd.DataFrame(
                 [
-                    (1, 1, 30, 0.0, 3.0),
-                    (1, 2, 20, 1.0, 2.0),
-                    (2, 1, 10, 2.0, 1.0),
-                    (2, 2, 0, 3.0, 0.0),
+                    (1, 1, 30, 1, 0.0, 3.0, 0.0, 3.0),
+                    (1, 2, 20, 1, 1.0, 2.0, 0.0, 2.8),
+                    (2, 1, 10, 1, 2.0, 1.0, 1.0, 1.0),
+                    (2, 2, 0, 1, 3.0, 0.0, 1.0, 0.8),
                 ],
                 columns=columns,
             ).to_parquet(processed_data_dir / "FD002" / "train")
             pd.DataFrame(
-                [(3, 1, 25, 0.5, 2.5), (3, 2, 5, 2.5, 0.5)], columns=columns
+                [
+                    (3, 1, 25, 1, 0.5, 2.5, 0.5, 2.5),
+                    (3, 2, 5, 1, 2.5, 0.5, 2.0, 2.1),
+                ],
+                columns=columns,
             ).to_parquet(processed_data_dir / "FD002" / "validation")
 
+            preprocessing_run_id = "preprocessing-run"
             run_id = train_random_forest(
                 subset_id="fd002",
-                preprocessing_run_id=preprocessing_run.info.run_id,
+                preprocessing_run_id=preprocessing_run_id,
                 processed_data_dir=processed_data_dir,
                 parameters={"n_estimators": 3, "random_state": 42},
             )
@@ -67,12 +69,12 @@ class RandomForestTrainingTests(unittest.TestCase):
             self.assertEqual(run.data.params["model_type"], "RandomForestRegressor")
             self.assertEqual(run.data.params["subset"], "FD002")
             self.assertEqual(
-                run.data.params["preprocessing_run_id"], preprocessing_run.info.run_id
+                run.data.params["preprocessing_run_id"], preprocessing_run_id
             )
-            self.assertEqual(run.data.params["feature_count"], "2")
+            self.assertEqual(run.data.params["feature_count"], "4")
             self.assertEqual(
                 json.loads(run.data.params["feature_names"]),
-                ["sensor_2", "sensor_3"],
+                ["sensor_2", "sensor_3", "sensor_2_lag_1", "sensor_3_ewma"],
             )
             self.assertEqual(run.data.params["n_estimators"], "3")
             self.assertEqual(

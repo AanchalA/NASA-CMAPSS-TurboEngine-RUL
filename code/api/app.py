@@ -4,10 +4,10 @@ from time import perf_counter
 from fastapi import FastAPI, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
-from api.api_schemas import PredictRequest, PredictionResponse
-from src.inference import RUL_PREDICTED_VALUE, RUL_PREDICTION_LATENCY, RUL_PREDICTIONS
 from src.tracking import fetch_run_id
-from src.training import predict_rul
+from src.inference.predict import predict_rul
+from api.api_schemas import PredictRequest, PredictionResponse
+from src.inference.inference_monitoring import RUL_PREDICTED_VALUE, RUL_PREDICTION_LATENCY, RUL_PREDICTIONS
 
 
 LOGGER = logging.getLogger(__name__)

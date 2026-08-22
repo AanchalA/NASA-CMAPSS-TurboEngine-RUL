@@ -7,9 +7,10 @@ import mlflow
 import mlflow.sklearn as mlflow_sklearn
 from sklearn.ensemble import RandomForestRegressor
 
+from src.tracking import configure_mlflow
+from src.data_processing import select_tabular_model_inputs
 from src.data_processing.constants import SUPPORTED_SUBSETS
 from src.training.model_evaluation_metrics import evaluate_predictions
-from src.tracking import configure_mlflow, load_preprocessing_state
 
 
 def train_random_forest(subset_id, preprocessing_run_id, processed_data_dir, parameters=None):
@@ -19,15 +20,14 @@ def train_random_forest(subset_id, preprocessing_run_id, processed_data_dir, par
 
     configure_mlflow()
     
-    artifacts = load_preprocessing_state(preprocessing_run_id)
-    feature_columns = list(artifacts.retained_sensor_columns)
     subset_path = Path(processed_data_dir) / normalized_subset
 
     train_dataframe = pd.read_parquet(subset_path / "train")
     validation_dataframe = pd.read_parquet(subset_path / "validation")
-     
-    X_train, y_train = train_dataframe.loc[:, feature_columns], train_dataframe.loc[:, "RUL"]
-    X_validation, y_validation = validation_dataframe.loc[:, feature_columns], validation_dataframe.loc[:, "RUL"]
+
+    X_train, y_train = select_tabular_model_inputs(train_dataframe)
+    feature_columns = list(X_train.columns)
+    X_validation, y_validation = select_tabular_model_inputs(validation_dataframe, feature_columns)
 
     model = RandomForestRegressor(**(parameters or {}))
     

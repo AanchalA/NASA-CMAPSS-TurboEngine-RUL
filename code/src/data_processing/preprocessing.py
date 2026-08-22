@@ -12,7 +12,10 @@ from src.tracking import configure_mlflow, log_preprocessing_state
 from src.tracking.spark_mlflow_tracking import log_preprocessing_model
 
 from src.data_processing.artifacts import PreprocessingArtifacts
-from src.data_processing.feature_engineering import (assign_operating_regimes, 
+from src.data_processing.feature_engineering import (add_ewma_features,
+                                                     add_lag_difference_features,
+                                                     rolling_slope_and_statistics_features,
+                                                     assign_operating_regimes,
                                                      drop_feature_columns, 
                                                      find_constant_feature_columns, 
                                                      fit_operating_regime_mapping)
@@ -75,11 +78,21 @@ def frame_counts(df):
     return df.count(), df.select("unit_id").distinct().count()
 
 
-def finalize_preprocessing_output(df, sensor_columns):    
-    return df.select("unit_id", "cycle", "RUL", F.col("regime").alias("operating_regime"), *sensor_columns)
+def finalize_preprocessing_output(df, sensor_columns, include_temporal_features=False):
+    output = df.select("unit_id", "cycle", "RUL", F.col("regime").alias("operating_regime"), *sensor_columns)
+    
+    if not include_temporal_features:
+        return output
+
+    output = add_lag_difference_features(output, sensor_columns)
+    output = rolling_slope_and_statistics_features(output, sensor_columns)
+    output = add_ewma_features(output, sensor_columns)
+    
+    return output
 
 
-def run_subset_preprocessing(spark, subset, raw_data_dir, output_dir, validation_fraction=0.2, seed=42):
+def run_subset_preprocessing(spark, subset, raw_data_dir, output_dir, 
+                             validation_fraction=0.2, seed=42, include_temporal_features=False):
     
     normalized_subset = subset.upper()
     if normalized_subset not in SUPPORTED_SUBSETS:
@@ -141,9 +154,12 @@ def run_subset_preprocessing(spark, subset, raw_data_dir, output_dir, validation
             scaled_validation = transform_with_artifacts(validation, artifacts, sensor_scaler)
             scaled_test = transform_with_artifacts(full_test, artifacts, sensor_scaler)
             
-            processed_train = finalize_preprocessing_output(scaled_train, artifacts.retained_sensor_columns).cache()
-            processed_validation = finalize_preprocessing_output(scaled_validation, artifacts.retained_sensor_columns).cache()
-            processed_test = finalize_preprocessing_output(scaled_test, artifacts.retained_sensor_columns).cache()
+            processed_train = finalize_preprocessing_output(scaled_train, artifacts.retained_sensor_columns, 
+                                                            include_temporal_features).cache()
+            processed_validation = finalize_preprocessing_output(scaled_validation, artifacts.retained_sensor_columns, 
+                                                                 include_temporal_features).cache()
+            processed_test = finalize_preprocessing_output(scaled_test, artifacts.retained_sensor_columns,
+                                                           include_temporal_features,).cache()
             
             processed_frames.extend((processed_train, processed_validation, processed_test))
 
@@ -154,6 +170,7 @@ def run_subset_preprocessing(spark, subset, raw_data_dir, output_dir, validation
             for split_name, frame in {"train": processed_train, 
                                       "validation": processed_validation, 
                                       "test": processed_test}.items():
+                
                 destination = subset_output / split_name
                 frame.write.mode("overwrite").parquet(str(destination))
                 LOGGER.info("wrote %s", destination)
@@ -161,21 +178,18 @@ def run_subset_preprocessing(spark, subset, raw_data_dir, output_dir, validation
             mlflow.log_params({"subset": normalized_subset,
                                "validation_fraction": validation_fraction,
                                "seed": seed,
+                               "include_temporal_features": include_temporal_features,
                                "scaling_strategy": scaling_strategy,
                                "regime_count": len(regime_mapping)})
             
-            log_preprocessing_state(artifacts)
-            
+            log_preprocessing_state(artifacts)            
             if isinstance(sensor_scaler, PipelineModel):
                 log_preprocessing_model(sensor_scaler)
                 
         finally:
             for frame in processed_frames:
-                frame.unpersist()
-                
+                frame.unpersist()                
             selected_train.unpersist()
-
-        retained_feature_count = len(artifacts.retained_sensor_columns)
         
         result = PreprocessingRunResult(subset=normalized_subset,
                                         train_output_path=str(subset_output / "train"),
@@ -188,7 +202,7 @@ def run_subset_preprocessing(spark, subset, raw_data_dir, output_dir, validation
                                         train_row_count=train_row_count,
                                         validation_row_count=validation_row_count,
                                         test_row_count=test_row_count,
-                                        feature_count=retained_feature_count,
+                                        feature_count=len(processed_train.columns) - 4,
                                         scaling_strategy=scaling_strategy,
                                         regime_count=len(regime_mapping))
         

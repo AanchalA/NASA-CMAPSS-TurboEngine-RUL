@@ -174,6 +174,34 @@ class PreprocessingOutputContractTests(unittest.TestCase):
             ["unit_id", "cycle", "RUL", "operating_regime", "sensor_2"],
         )
 
+    def test_temporal_features_are_optional_and_use_scaled_sensor_history(self) -> None:
+        frame = self.spark.createDataFrame(
+            [
+                (1, 3, 0, 1, 18.0),
+                (1, 1, 2, 1, 10.0),
+                (1, 2, 1, 1, 14.0),
+                (2, 1, 1, 1, 100.0),
+                (2, 2, 0, 1, 90.0),
+            ],
+            "unit_id int, cycle int, RUL int, regime int, sensor_2 double",
+        )
+
+        output = finalize_preprocessing_output(
+            frame,
+            ("sensor_2",),
+            include_temporal_features=True,
+        )
+        rows = output.orderBy("unit_id", "cycle").collect()
+
+        self.assertEqual(rows[1]["sensor_2_lag_1"], 10.0)
+        self.assertEqual(rows[1]["sensor_2_diff_1"], 4.0)
+        self.assertEqual(rows[1]["sensor_2_rolling_mean_5"], 12.0)
+        self.assertAlmostEqual(rows[1]["sensor_2_rolling_std_5"], 2.8284271247461903)
+        self.assertEqual(rows[1]["sensor_2_rolling_slope_5"], 4.0)
+        self.assertEqual(rows[1]["sensor_2_ewma"], 10.8)
+        self.assertIsNone(rows[3]["sensor_2_lag_1"])
+        self.assertEqual(len(output.columns) - 4, 15)
+
 class PreprocessingRunnerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -214,6 +242,13 @@ class PreprocessingRunnerTests(unittest.TestCase):
                 second = run_subset_preprocessing(
                     self.spark, "FD001", raw, processed
                 )
+                temporal = run_subset_preprocessing(
+                    self.spark,
+                    "FD001",
+                    raw,
+                    root / "processed-temporal",
+                    include_temporal_features=True,
+                )
                 configure_mlflow()
                 loaded = load_preprocessing_state(first.run_id)
                 loaded_model = load_preprocessing_model(first.run_id)
@@ -225,6 +260,14 @@ class PreprocessingRunnerTests(unittest.TestCase):
             self.assertEqual(first.scaling_strategy, "global")
             self.assertEqual(first.regime_count, 1)
             self.assertEqual(first.feature_count, 1)
+            self.assertEqual(temporal.feature_count, 15)
+            temporal_columns = self.spark.read.parquet(
+                temporal.train_output_path
+            ).columns
+            self.assertIn("sensor_2_lag_1", temporal_columns)
+            self.assertIn("sensor_2_rolling_mean_5", temporal_columns)
+            self.assertIn("sensor_2_rolling_slope_5", temporal_columns)
+            self.assertIn("sensor_2_ewma", temporal_columns)
             self.assertEqual(
                 self.spark.read.parquet(first.train_output_path).count(),
                 first.train_row_count,

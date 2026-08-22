@@ -55,7 +55,8 @@ def cmapss_preprocessing_dag():
             result = run_subset_preprocessing(spark=spark,
                                               subset=subset,
                                               raw_data_dir=Path(runtime["raw_data_dir"]),
-                                              output_dir=Path(runtime["processed_data_dir"]))
+                                              output_dir=Path(runtime["processed_data_dir"]),
+                                              include_temporal_features=True)
 
         return result.run_id
 
