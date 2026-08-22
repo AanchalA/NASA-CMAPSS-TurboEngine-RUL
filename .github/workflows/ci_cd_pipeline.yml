@@ -1,52 +1,50 @@
-name: Model Training & Monitoring CI/CD Pipeline
+name: Test Suite
 
 on:
   push:
-    branches: [ "ci-cd-pipeline", "ci-cd-setup", "model-training", "main" ]
+    branches:
+      - main
+      - data-preprocessing
+      - model-training
+      - model-deployment
+      - actions-logging-monitoring
   pull_request:
-    branches: [ "ci-cd-pipeline", "ci-cd-setup", "model-training", "main" ]
+    branches:
+      - main
+      - data-preprocessing
+      - model-training
+      - model-deployment
+      - actions-logging-monitoring
 
 jobs:
-  train-and-track:
-    name: Train CMAPSS RUL Model & Log Experiments
+  test:
+    name: Run Tests
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
-    - name: Install uv Package Manager
-      uses: astral-sh/setup-uv@v3
-      with:
+    - name: Install uv and Python
+      uses: astral-sh/setup-uv@v9.0.0
+      with:        
+        python-version: "3.12"
         enable-cache: true
-        version: "latest"
+        cache-python: true
+        cache-dependency-glob: |
+          pyproject.toml
+          uv.lock
 
-    - name: Set up Python Environment
-      run: uv python install 3.12
+    - name: Set up Java
+      uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: "17"
 
-    - name: Install Project & Dependencies
-      run: |
-        uv sync --all-extras --dev
-
-    - name: Execute Model Training
-      env:
-        PYTHONPATH: ${{ github.workspace }}/code
-      run: |
-        uv run python code/src/training/train.py
+    - name: Install Test Dependencies
+      run: uv sync --frozen --all-extras --dev
 
     - name: Run Tests
-      run: |
-        uv run pytest || echo "No tests configured, skipping."
-
-    - name: Upload MLflow Runs & Model Artifacts
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: cmapss-training-artifacts
-        path: |
-          mlruns/
-          models/
-          *.pkl
-          *.pt
-          *.h5
-        if-no-files-found: ignore
+      env:
+        PYTHONPATH: ${{ github.workspace }}/code
+      run: uv run --no-sync pytest -m "not requires_data"
