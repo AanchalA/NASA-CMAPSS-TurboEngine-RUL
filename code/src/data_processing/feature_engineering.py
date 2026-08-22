@@ -1,11 +1,7 @@
 from pyspark.sql import functions as F
 from pyspark.sql.types import DoubleType, IntegerType, StructField, StructType
 
-from src.data_processing.schema import (
-    CMAPSS_FEATURE_COLUMNS,
-    OPERATING_SETTING_COLUMNS,
-    PROTECTED_COLUMNS,
-)
+from src.data_processing.constants import CMAPSS_FEATURE_COLUMNS, OPERATING_SETTING_COLUMNS, PROTECTED_COLUMNS
 
 
 KEY_COLUMNS = ("regime_setting_1", "regime_setting_2", "regime_setting_3")

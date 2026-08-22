@@ -1,33 +1,54 @@
-import mlflow.sklearn as mlflow_sklearn
+import pandas as pd
+from functools import cache
 from mlflow import MlflowClient
-from pyspark.sql import functions as F
+import mlflow.sklearn as mlflow_sklearn
 
-from src.data_processing import validate_cmapss_data, SUPPORTED_SUBSETS
-from src.data_processing.preprocessing import transform_with_artifacts
-from src.tracking import configure_mlflow, load_preprocessing_model, load_preprocessing_state
+from src.data_processing.constants import SUPPORTED_SUBSETS
+from src.tracking import configure_mlflow, load_preprocessing_state
 
 
-def process_raw_trajectory(subset_id, raw_trajectory, preprocessing_run_id):
-    
-    validate_cmapss_data(raw_trajectory)
-    if raw_trajectory.select("unit_id").distinct().count() != 1:
-        raise ValueError("inference requires exactly one engine trajectory")
-    
+@cache
+def load_training_model(training_run_id):
+    return mlflow_sklearn.load_model(f"runs:/{training_run_id}/model")
+
+
+def process_observations(observations, preprocessing_run_id):
+
+    if len({observation["unit_id"] for observation in observations}) != 1:
+        raise ValueError("inference requires observations from exactly one engine")
+
     artifacts = load_preprocessing_state(preprocessing_run_id)
+    latest = max(observations, key=lambda observation: observation["cycle"])
+
+    regime_key = (float(round(latest["setting_1"], 0)),
+                  float(round(latest["setting_2"], 2)),
+                  float(round(latest["setting_3"], 0)))
+
+    try:
+        regime = artifacts.regime_mapping[regime_key]
+    except KeyError as error:
+        raise ValueError(f"operating regime key unseen in training: {regime_key}") from error
+
+    scaler = artifacts.global_sensor_scaler
+
+    if scaler is None and artifacts.regime_sensor_scaler is not None:
+        scaler = artifacts.regime_sensor_scaler
+        statistics = scaler.statistics[regime]
+
+    elif scaler is not None:
+        statistics = scaler.statistics
+
+    else:
+        raise ValueError("preprocessing run does not contain online global-scaler statistics. rerun needed for preprocessing and training")
+
+    transformed = {sensor: 0.0 if statistics[sensor].std == 0.0 
+                   else (latest[sensor] - statistics[sensor].mean) / statistics[sensor].std 
+                   for sensor in artifacts.retained_sensor_columns}
     
-    sensor_scaler = (load_preprocessing_model(preprocessing_run_id) 
-                     if subset_id.upper() in ["FD001", "FD003"] else artifacts.regime_sensor_scaler
-    )
-
-    transformed = transform_with_artifacts(raw_trajectory, artifacts, sensor_scaler)
-    feature_columns = list(artifacts.retained_sensor_columns)
-    latest_observation = transformed.orderBy(F.desc("cycle")).limit(1)
-    model_input = latest_observation.select(*feature_columns).toPandas()
-
-    return model_input
+    return pd.DataFrame([transformed], columns=artifacts.retained_sensor_columns)
 
 
-def predict_rul(subset_id, training_run_id, raw_trajectory):
+def predict_rul(subset_id, training_run_id, observations):
     
     normalized_subset = subset_id.upper()
     if normalized_subset not in SUPPORTED_SUBSETS:
@@ -43,10 +64,8 @@ def predict_rul(subset_id, training_run_id, raw_trajectory):
 
     preprocessing_run_id = training_run.data.params["preprocessing_run_id"]
     
-    model_input = process_raw_trajectory(subset_id=normalized_subset,
-                                         raw_trajectory=raw_trajectory,
-                                         preprocessing_run_id=preprocessing_run_id)
+    model_input = process_observations(observations=observations, preprocessing_run_id=preprocessing_run_id)
 
-    model = mlflow_sklearn.load_model(f"runs:/{training_run_id}/model")
+    model = load_training_model(training_run_id)
     
     return float(model.predict(model_input)[0])

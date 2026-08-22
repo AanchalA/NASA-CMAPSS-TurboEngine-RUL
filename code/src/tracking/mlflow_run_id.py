@@ -2,7 +2,7 @@ from os import getenv
 
 from mlflow import MlflowClient
 
-from src.data_processing.schema import SUPPORTED_SUBSETS
+from src.data_processing.constants import SUPPORTED_SUBSETS
 from src.tracking.mlflow_tracking import configure_mlflow
 
 

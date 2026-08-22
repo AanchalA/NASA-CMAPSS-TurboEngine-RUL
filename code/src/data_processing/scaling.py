@@ -1,23 +1,8 @@
-from dataclasses import dataclass
-
 from pyspark.ml import PipelineModel
 from pyspark.ml.functions import vector_to_array
 from pyspark.sql import functions as F
 
-
-@dataclass(frozen=True)
-class SensorStatistics:
-    mean: float
-    std: float
-
-
-@dataclass(frozen=True)
-class RegimeSensorScaler:
-    statistics: dict
-    @property
-    def sensor_columns(self):
-        first_regime = next(iter(self.statistics.values()), {})
-        return tuple(first_regime)
+from src.data_processing.scaler_state import GlobalSensorScaler, RegimeSensorScaler, SensorStatistics
 
 
 def statistics_from_row(row, sensor_columns):
@@ -52,6 +37,14 @@ def fit_regime_sensor_scaler(train_df, sensor_columns):
         statistics[regime] = regime_statistics
 
     return RegimeSensorScaler(statistics=statistics)
+
+
+def global_sensor_scaler_from_model(model, sensor_columns):
+    scaler_model = model.stages[-1]
+    statistics = {sensor: SensorStatistics(float(mean), float(std))
+                  for sensor, mean, std in zip(sensor_columns, scaler_model.mean, scaler_model.std, strict=True)}
+    
+    return GlobalSensorScaler(statistics=statistics)
 
 
 def regime_scaled_column(sensor, scaler):

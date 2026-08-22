@@ -1,0 +1,13 @@
+.venv
+.git
+.gitignore
+
+.airflow
+mlruns
+Data
+
+__pycache__
+*.pyc
+.pytest_cache
+
+.ipynb_checkpoints

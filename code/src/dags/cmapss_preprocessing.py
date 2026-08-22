@@ -7,7 +7,7 @@ from pathlib import Path
 from airflow.sdk import Param, dag, get_current_context, task
 
 from src.dags import get_preprocessing_runtime
-from build_spark import spark_session_context
+from src.build_spark import spark_session_context
 
 
 DAG_ID = "cmapss_preprocessing"
