@@ -1,0 +1,36 @@
+groups:
+  - name: cmapss-api
+    rules:
+      - alert: CmapssApiDown
+        expr: up{job="cmapss_rul_inference"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: C-MAPSS API metrics endpoint is unavailable
+          description: Prometheus has been unable to scrape the C-MAPSS API for one minute.
+
+      - alert: CmapssApiHighErrorRate
+        expr: |
+          sum(rate(rul_predictions_total{status="error"}[5m]))
+          /
+          sum(rate(rul_predictions_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: C-MAPSS prediction error rate is above 5%
+          description: More than 5% of prediction requests have failed over the last five minutes.
+
+      - alert: CmapssApiHighP95Latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(rul_prediction_latency_seconds_bucket[5m]))
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: C-MAPSS prediction p95 latency is above two seconds
+          description: The p95 prediction latency has exceeded two seconds for five minutes.

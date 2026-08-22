@@ -126,7 +126,7 @@ Send one or more observations for one engine. All settings and sensor fields are
 curl -X POST http://localhost:8000/predict \
   -H 'Content-Type: application/json' \
   -d '{
-    "subset_id": "FD002",
+    "subset_id": "FD004",
     "model_type": "RandomForestRegressor",
     "observations": [
       {
@@ -162,3 +162,16 @@ curl -X POST http://localhost:8000/predict \
 ```
 
 The API resolves the latest matching MLflow training run and returns `predicted_rul`.
+
+## Run monitoring
+
+With the API running on host port 8000, start Prometheus and Grafana:
+
+```bash
+docker compose up -d
+```
+
+FastAPI exposes Prometheus data at `http://localhost:8000/metrics`.
+
+Prometheus is available at `http://localhost:9090` and Grafana at
+`http://localhost:3000` (default user `admin`, password `admin`). 

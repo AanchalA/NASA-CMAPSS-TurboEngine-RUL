@@ -1,21 +1,17 @@
-from prometheus_client import start_http_server, Counter, Histogram, Gauge
-import time
+from prometheus_client import Counter, Gauge, Histogram
 
-# Metrics definitions
-INFERENCE_COUNT = Counter('rul_predictions_total', 'Total RUL predictions processed')
-LATENCY_HISTOGRAM = Histogram('rul_prediction_latency_seconds', 'Inference latency in seconds')
-ENGINE_RUL_GAUGE = Gauge('engine_predicted_rul', 'Predicted Remaining Useful Life', ['engine_id'])
 
-# Expose HTTP metrics endpoint on port 8000
-start_http_server(8000)
+METRIC_LABELS = ("subset", "model_type", "status")
 
-def predict_engine_rul(engine_id: int, sensor_inputs, model):
-    start_time = time.time()
-    
-    predicted_rul = model.predict(sensor_inputs)[0]
-    
-    INFERENCE_COUNT.inc()
-    LATENCY_HISTOGRAM.observe(time.time() - start_time)
-    ENGINE_RUL_GAUGE.labels(engine_id=str(engine_id)).set(predicted_rul)
-    
-    return predicted_rul
+
+RUL_PREDICTIONS = Counter("rul_predictions_total",
+                          "Total RUL prediction requests processed.",
+                          METRIC_LABELS)
+
+RUL_PREDICTION_LATENCY = Histogram("rul_prediction_latency_seconds",
+                                   "End-to-end RUL prediction request latency in seconds.",
+                                   METRIC_LABELS)
+
+RUL_PREDICTED_VALUE = Gauge("rul_predicted_value",
+                            "Latest predicted RUL value.",
+                            ("subset", "model_type"))

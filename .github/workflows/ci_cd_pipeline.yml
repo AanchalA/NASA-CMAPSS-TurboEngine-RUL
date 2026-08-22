@@ -23,16 +23,18 @@ jobs:
 
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
-    - name: Install uv Package Manager
-      uses: astral-sh/setup-uv@v3
+    - name: Install uv and Python
+      uses: astral-sh/setup-uv@v9
       with:
-        enable-cache: true
         version: "latest"
-
-    - name: Set up Python Environment
-      run: uv python install 3.12
+        python-version: "3.12"
+        enable-cache: true
+        cache-python: true
+        cache-dependency-glob: |
+          pyproject.toml
+          uv.lock
 
     - name: Set up Java
       uses: actions/setup-java@v5
