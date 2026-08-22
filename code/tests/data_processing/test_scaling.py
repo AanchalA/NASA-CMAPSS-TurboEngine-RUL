@@ -7,6 +7,7 @@ import sys
 import unittest
 from pathlib import Path
 
+import pytest
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import StandardScaler, VectorAssembler
 from pyspark.sql import DataFrame, SparkSession, functions as F
@@ -215,6 +216,7 @@ class SensorScalingTests(unittest.TestCase):
             (40.0 - 20.0) / math.sqrt(200.0 / 3.0),
         )
 
+    @pytest.mark.requires_data
     def test_real_subsets_follow_global_and_regime_strategies(self) -> None:
         modes = {"FD001": "global", "FD002": "regime", "FD003": "global", "FD004": "regime"}
 

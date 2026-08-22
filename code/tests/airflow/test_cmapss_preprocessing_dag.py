@@ -5,6 +5,8 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
+import pytest
+
 from src.dags.airflow_config import PROJECT_ROOT
 
 
@@ -57,6 +59,7 @@ class CmapssPreprocessingDagTests(unittest.TestCase):
             {"select_subsets", "preprocess_subset"},
         )
 
+    @pytest.mark.requires_data
     def test_runtime_uses_native_data_directory_defaults(self) -> None:
         with patch.dict(
             "os.environ",

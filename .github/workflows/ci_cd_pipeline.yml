@@ -35,7 +35,7 @@ jobs:
       run: uv python install 3.12
 
     - name: Set up Java
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v5
       with:
         distribution: temurin
         java-version: "17"
@@ -46,4 +46,4 @@ jobs:
     - name: Run Tests
       env:
         PYTHONPATH: ${{ github.workspace }}/code
-      run: uv run --no-sync pytest
+      run: uv run --no-sync pytest -m "not requires_data"

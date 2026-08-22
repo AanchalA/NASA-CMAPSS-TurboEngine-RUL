@@ -6,6 +6,7 @@ import sys
 import unittest
 from pathlib import Path
 
+import pytest
 from pyspark.sql import SparkSession
 
 
@@ -44,6 +45,7 @@ class ValidateCmapssDataTests(unittest.TestCase):
     def dataframe(self, rows: list[tuple]):
         return self.spark.createDataFrame(rows, schema=CMAPSS_SCHEMA)
 
+    @pytest.mark.requires_data
     def test_actual_parsed_file_is_valid(self) -> None:
         dataframe = load_cmapss_raw(
             self.spark,

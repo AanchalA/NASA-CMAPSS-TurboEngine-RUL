@@ -6,6 +6,7 @@ import sys
 import unittest
 from pathlib import Path
 
+import pytest
 from pyspark.sql import DataFrame, SparkSession
 
 
@@ -133,6 +134,7 @@ class ConstantFeatureSelectionTests(unittest.TestCase):
         )
         self.assertEqual(validation_df.collect(), original_validation)
 
+    @pytest.mark.requires_data
     def test_fd001_training_constants_and_aligned_partitions(self) -> None:
         original = load_cmapss_raw(
             self.spark,

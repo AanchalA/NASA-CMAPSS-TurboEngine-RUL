@@ -6,6 +6,7 @@ import sys
 import unittest
 from pathlib import Path
 
+import pytest
 from pyspark.sql import DataFrame, SparkSession
 
 
@@ -120,6 +121,7 @@ class SplitTrainValidationByUnitTests(unittest.TestCase):
                 ):
                     split_train_validation_by_unit(original, fraction)
 
+    @pytest.mark.requires_data
     def test_fd001_training_split(self) -> None:
         original = add_rul_target(
             load_cmapss_raw(

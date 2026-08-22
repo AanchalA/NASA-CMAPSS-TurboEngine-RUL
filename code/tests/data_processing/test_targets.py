@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pytest
 from pyspark.sql import SparkSession, Window, functions as F
 from pyspark.sql.types import IntegerType
 
@@ -108,6 +109,7 @@ class AddRulTargetTests(unittest.TestCase):
         )
         self.assertEqual(original.columns, list(CMAPSS_COLUMNS))
 
+    @pytest.mark.requires_data
     def test_fd001_training_data_invariants(self) -> None:
         original = load_cmapss_raw(
             self.spark,
@@ -312,6 +314,7 @@ class AddRulTargetTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, message):
                         load_cmapss_test_rul(self.spark, path)
 
+    @pytest.mark.requires_data
     def test_all_official_test_subsets_use_nasa_terminal_targets(self) -> None:
         for subset in ("FD001", "FD002", "FD003", "FD004"):
             with self.subTest(subset=subset):

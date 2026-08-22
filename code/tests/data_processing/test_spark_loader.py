@@ -4,6 +4,7 @@ import sys
 import unittest
 from pathlib import Path
 
+import pytest
 from pyspark.sql import SparkSession
 
 
@@ -14,6 +15,7 @@ from src.data_processing.constants import CMAPSS_COLUMNS
 from src.data_processing.data_loader import load_cmapss_raw
 
 
+@pytest.mark.requires_data
 class LoadCmapssRawTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:

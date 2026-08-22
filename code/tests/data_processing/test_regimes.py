@@ -6,6 +6,7 @@ import sys
 import unittest
 from pathlib import Path
 
+import pytest
 from pyspark.sql import DataFrame, SparkSession
 
 
@@ -104,6 +105,7 @@ class OperatingRegimeTests(unittest.TestCase):
                 self.synthetic_frame([(99.0, 9.99, 999.0)]), mapping
             )
 
+    @pytest.mark.requires_data
     def test_real_subsets_and_official_tests_use_training_mapping(self) -> None:
         expected_counts = {"FD001": 1, "FD002": 6, "FD003": 1, "FD004": 6}
 

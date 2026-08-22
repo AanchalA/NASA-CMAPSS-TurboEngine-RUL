@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 from pathlib import Path
 
+import pytest
 from pyspark.ml import Pipeline, PipelineModel
 from pyspark.ml.feature import StandardScaler, VectorAssembler
 from pyspark.ml.linalg import VectorUDT
@@ -256,6 +257,7 @@ class PreprocessingRunnerTests(unittest.TestCase):
             self.assertIsInstance(loaded_model, PipelineModel)
 
 
+@pytest.mark.requires_data
 class RealPreprocessingRunnerIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:

@@ -6,6 +6,7 @@ import sys
 import unittest
 from pathlib import Path
 
+import pytest
 from pyspark.sql import DataFrame, SparkSession
 
 
@@ -115,6 +116,7 @@ class ArtifactSerializationTests(unittest.TestCase):
                 retained_sensor_columns=("setting_1", "sensor_2"),
             )
 
+@pytest.mark.requires_data
 class RealArtifactIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
