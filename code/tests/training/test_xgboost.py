@@ -5,7 +5,7 @@ from src.training.tree_models.train_xgboost import train_xgboost
 
 
 class XGBoostTrainingTests(unittest.TestCase):
-    @patch("src.training.models.train_xgboost.train_tabular_model")
+    @patch("src.training.tree_models.train_xgboost.train_tabular_model")
     def test_uses_fixed_parameters_and_capped_target(self, train_tabular_model_mock):
         train_tabular_model_mock.return_value = "training-run"
 
