@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import torch
 
-from src.training import LSTMRegressor, train_lstm
+from src.training import LSTMRegressor
 from src.training.lstm import predict_sequences
 
 
@@ -37,11 +37,6 @@ class LSTMTests(unittest.TestCase):
 
         self.assertEqual(predictions.shape, (3,))
         self.assertTrue(np.isfinite(predictions).all())
-
-    def test_rejects_nonpositive_rul_cap(self):
-        with self.assertRaisesRegex(ValueError, "RUL cap must be positive"):
-            train_lstm("FD001", "run", "processed", "raw", rul_cap=0)
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -287,6 +287,20 @@ Replace `FD001` with the required subset. Models, metrics, and artifacts are rec
 
 ---
 
+## Run MLflow
+
+```bash
+export MLFLOW_TRACKING_URI="file://$PWD/mlruns"
+MLFLOW_ALLOW_FILE_STORE=true mlflow ui \
+  --backend-store-uri "$MLFLOW_TRACKING_URI" \
+  --host 0.0.0.0 \
+  --port 5000
+```
+
+Open `http://localhost:5000` to view preprocessing and training runs.
+
+---
+
 ## Run Model Serving
 
 ### Local
