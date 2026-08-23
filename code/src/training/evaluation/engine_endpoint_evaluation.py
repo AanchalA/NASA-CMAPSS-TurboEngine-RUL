@@ -3,7 +3,7 @@ import pandas as pd
 from math import ceil
 from pathlib import Path
 
-from src.training.evaluation import nasa_score_contribution
+from src.training.evaluation.model_evaluation_metrics import nasa_score_contribution
 
 
 def deterministic_cutoff(unit_id, first_cycle, final_cycle, seed):

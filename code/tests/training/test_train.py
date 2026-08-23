@@ -1,6 +1,3 @@
-"""Tests for the Random Forest training flow."""
-
-import json
 import os
 import tempfile
 import unittest
@@ -13,9 +10,8 @@ import pandas as pd
 from mlflow import MlflowClient
 from sklearn.ensemble import RandomForestRegressor
 
-
-from src.training.run_training import run_random_forest_baseline
-from src.training.train import train_random_forest
+from src.training.tree_models import train_random_forest
+from src.training.tree_models.run_tabular_training import run_training
 
 
 class RandomForestTrainingTests(unittest.TestCase):
@@ -29,7 +25,9 @@ class RandomForestTrainingTests(unittest.TestCase):
             },
         ):
             processed_data_dir = Path(directory) / "processed"
-            (processed_data_dir / "FD002").mkdir(parents=True)
+            preprocessing_run_id = "preprocessing-run"
+            preprocessing_path = processed_data_dir / "FD002" / preprocessing_run_id
+            preprocessing_path.mkdir(parents=True)
             columns = [
                 "unit_id",
                 "cycle",
@@ -48,16 +46,16 @@ class RandomForestTrainingTests(unittest.TestCase):
                     (2, 2, 0, 1, 3.0, 0.0, 1.0, 0.8),
                 ],
                 columns=columns,
-            ).to_parquet(processed_data_dir / "FD002" / "train")
+            ).to_parquet(preprocessing_path / "train")
             pd.DataFrame(
                 [
                     (3, 1, 25, 1, 0.5, 2.5, 0.5, 2.5),
                     (3, 2, 5, 1, 2.5, 0.5, 2.0, 2.1),
+                    (3, 3, 0, 1, 3.0, 0.0, 2.5, 1.5),
                 ],
                 columns=columns,
-            ).to_parquet(processed_data_dir / "FD002" / "validation")
+            ).to_parquet(preprocessing_path / "validation")
 
-            preprocessing_run_id = "preprocessing-run"
             run_id = train_random_forest(
                 subset_id="fd002",
                 preprocessing_run_id=preprocessing_run_id,
@@ -72,15 +70,30 @@ class RandomForestTrainingTests(unittest.TestCase):
                 run.data.params["preprocessing_run_id"], preprocessing_run_id
             )
             self.assertEqual(run.data.params["feature_count"], "4")
+            self.assertEqual(run.data.params["validation_protocol"], "pseudo_test_endpoint")
+            self.assertEqual(run.data.params["validation_endpoint_count"], "1")
+            self.assertEqual(run.data.tags["feature_set"], "temporal")
+            self.assertNotIn("feature_names", run.data.params)
             self.assertEqual(
-                json.loads(run.data.params["feature_names"]),
+                mlflow.artifacts.load_dict(f"runs:/{run_id}/feature_names.json"),
                 ["sensor_2", "sensor_3", "sensor_2_lag_1", "sensor_3_ewma"],
             )
             self.assertEqual(run.data.params["n_estimators"], "3")
             self.assertEqual(
                 set(run.data.metrics),
-                {"rmse", "mae", "nasa_score", "bias", "late_prediction_rate"},
+                {
+                    "rmse", "mae", "nasa_score", "bias", "late_prediction_rate",
+                    "validation_row_rmse", "validation_row_mae",
+                    "validation_row_nasa_score", "validation_row_bias",
+                    "validation_row_late_prediction_rate",
+                    "worst_positive_error", "worst_negative_error",
+                    "largest_nasa_contribution", "top_3_nasa_contribution",
+                },
             )
+            diagnostics = mlflow.artifacts.load_text(
+                f"runs:/{run_id}/validation_endpoint_predictions.csv"
+            )
+            self.assertIn("unit_id,cutoff_cycle,true_RUL,prediction,error,nasa_contribution", diagnostics)
             self.assertIsInstance(
                 mlflow.sklearn.load_model(f"runs:/{run_id}/model"),
                 RandomForestRegressor,
@@ -101,7 +114,8 @@ class RandomForestTrainingTests(unittest.TestCase):
         }
         parameters = {"n_estimators": 100, "random_state": 42}
 
-        result = run_random_forest_baseline(
+        result = run_training(
+            model_type="random_forest",
             subset_id="fd003",
             preprocessing_run_id="preprocessing-run",
             processed_data_dir="processed",

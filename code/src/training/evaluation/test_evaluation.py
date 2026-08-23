@@ -8,9 +8,9 @@ from src.tracking import (
     load_training_model,
 )
 from src.data_processing.constants import SUPPORTED_SUBSETS
-from src.training.evaluation import (evaluate_predictions,
-                                     evaluate_prediction_diagnostics, 
-                                     prepare_official_test_metadata)
+from src.training.evaluation.engine_endpoint_evaluation import (evaluate_prediction_diagnostics,
+                                                                prepare_official_test_metadata)
+from src.training.evaluation.model_evaluation_metrics import evaluate_predictions
 
 
 def prepare_test_data(subset_id, preprocessing_run_id, feature_columns, processed_data_dir, raw_data_dir):
