@@ -1,5 +1,3 @@
-"""Tests for the production C-MAPSS preprocessing composition layer."""
-
 import os
 import shutil
 import sys
@@ -19,19 +17,19 @@ from pyspark.sql.types import NumericType
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT / "code"))
 
-from src.data_processing.preprocessing import (  # noqa: E402
+from src.data_processing.preprocessing import (
     PreprocessingRunResult,
     finalize_preprocessing_output,
     run_subset_preprocessing,
 )
-from src.data_processing.scaler_state import RegimeSensorScaler  # noqa: E402
-from src.data_processing.scaling import (  # noqa: E402
+from src.data_processing.scaler_state import RegimeSensorScaler
+from src.data_processing.scaling import (
     apply_global_sensor_scaler,
     apply_sensor_scaler,
     fit_regime_sensor_scaler,
 )
-from src.tracking.mlflow_tracking import configure_mlflow, load_preprocessing_state  # noqa: E402
-from src.tracking.spark_mlflow_tracking import load_preprocessing_model  # noqa: E402
+from src.tracking.mlflow_tracking import configure_mlflow, load_preprocessing_state
+from src.tracking.spark_mlflow_tracking import load_preprocessing_model
 
 
 def _raw_row(unit_id: int, cycle: int) -> str:
@@ -254,6 +252,9 @@ class PreprocessingRunnerTests(unittest.TestCase):
                 loaded_model = load_preprocessing_model(first.run_id)
 
             self.assertNotEqual(first.run_id, second.run_id)
+            self.assertNotEqual(first.train_output_path, second.train_output_path)
+            self.assertEqual(Path(first.train_output_path).parent.name, first.run_id)
+            self.assertEqual(Path(second.train_output_path).parent.name, second.run_id)
             self.assertEqual(first.train_row_count, second.train_row_count)
             self.assertEqual(first.train_row_count + first.validation_row_count, 12)
             self.assertEqual(first.test_row_count, 4)

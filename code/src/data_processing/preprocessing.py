@@ -100,12 +100,11 @@ def run_subset_preprocessing(spark, subset, raw_data_dir, output_dir,
 
     train_path, test_path, test_rul_path = input_paths(raw_data_dir, normalized_subset)
     validate_input_paths((train_path, test_path, test_rul_path))
-    subset_output = Path(fspath(output_dir)) / normalized_subset
-    
     configure_mlflow()
 
     with mlflow.start_run(run_name=f"{normalized_subset}-preprocessing") as run:
         LOGGER.info("starting %s", normalized_subset)
+        subset_output = Path(fspath(output_dir)) / normalized_subset / run.info.run_id
         
         raw_train = load_cmapss_raw(spark, train_path)
         raw_test = load_cmapss_raw(spark, test_path)
@@ -172,7 +171,7 @@ def run_subset_preprocessing(spark, subset, raw_data_dir, output_dir,
                                       "test": processed_test}.items():
                 
                 destination = subset_output / split_name
-                frame.write.mode("overwrite").parquet(str(destination))
+                frame.write.parquet(str(destination))
                 LOGGER.info("wrote %s", destination)
 
             mlflow.log_params({"subset": normalized_subset,
