@@ -99,8 +99,8 @@ class RandomForestTrainingTests(unittest.TestCase):
                 RandomForestRegressor,
             )
 
-    @patch("src.training.run_training.evaluate_test_data")
-    @patch("src.training.run_training.train_random_forest")
+    @patch("src.training.tree_models.run_tabular_training.evaluate_test_data")
+    @patch("src.training.tree_models.run_tabular_training.train_random_forest")
     def test_runs_training_then_official_test_evaluation(
         self,
         train_random_forest_mock,

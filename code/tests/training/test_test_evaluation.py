@@ -12,10 +12,10 @@ from src.training.evaluation.test_evaluation import evaluate_test_data
 
 
 class TestEvaluationTests(unittest.TestCase):
-    @patch("src.training.test_evaluation.load_training_feature_columns")
-    @patch("src.training.test_evaluation.load_training_model")
-    @patch("src.training.test_evaluation.MlflowClient")
-    @patch("src.training.test_evaluation.configure_mlflow")
+    @patch("src.training.evaluation.test_evaluation.load_training_feature_columns")
+    @patch("src.training.evaluation.test_evaluation.load_training_model")
+    @patch("src.training.evaluation.test_evaluation.MlflowClient")
+    @patch("src.training.evaluation.test_evaluation.configure_mlflow")
     def test_uses_final_cycles_and_official_rul(
         self,
         configure_mlflow,
