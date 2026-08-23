@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, call, patch
 import pandas as pd
 
 
-from src.training.test_evaluation import evaluate_test_data
+from src.training.evaluation.test_evaluation import evaluate_test_data
 
 
 class TestEvaluationTests(unittest.TestCase):

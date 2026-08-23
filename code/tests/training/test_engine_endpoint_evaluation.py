@@ -2,10 +2,7 @@ import unittest
 
 import pandas as pd
 
-from src.training.engine_endpoint_evaluation import (
-    evaluate_prediction_diagnostics,
-    prepare_pseudo_test_validation,
-)
+from src.training.evaluation import evaluate_prediction_diagnostics, prepare_pseudo_test_validation
 
 
 class PseudoTestValidationTests(unittest.TestCase):

@@ -9,7 +9,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT / "code"))
 
-from src.training.model_evaluation_metrics import evaluate_predictions
+from src.training.evaluation import evaluate_predictions
 
 
 class EvaluationTests(unittest.TestCase):
