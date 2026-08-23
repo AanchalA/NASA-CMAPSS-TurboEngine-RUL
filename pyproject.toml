@@ -13,6 +13,8 @@ dependencies = [
 [project.optional-dependencies]
 train = [
     "pyarrow",
+    "torch>=2.7",
+    "xgboost-cpu>=3.0",
 ]
 serve = [
     "fastapi>=0.141.1",
@@ -35,6 +37,14 @@ offline = [
 dev = [
     "pytest>=9.1.1",
 ]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.pytest.ini_options]
 markers = [
