@@ -4,8 +4,7 @@ import numpy as np
 DEFAULT_SEQUENCE_LENGTH = 30
 
 
-def build_sliding_window_sequences(dataframe, feature_columns, sequence_length=DEFAULT_SEQUENCE_LENGTH):
-    feature_columns = tuple(feature_columns)
+def build_sliding_window_sequences(dataframe, feature_columns, sequence_length=DEFAULT_SEQUENCE_LENGTH):    
     
     ordered = dataframe.sort_values(["unit_id", "cycle"])
     sequences = []
@@ -26,3 +25,16 @@ def build_sliding_window_sequences(dataframe, feature_columns, sequence_length=D
                 np.empty((0,), dtype=dataframe["RUL"].dtype))
 
     return np.concatenate(sequences), np.concatenate(targets)
+
+
+def build_endpoint_sequences(dataframe, endpoints, feature_columns, sequence_length=DEFAULT_SEQUENCE_LENGTH):        
+    ordered = dataframe.sort_values(["unit_id", "cycle"])
+    sequences = []
+
+    for endpoint in endpoints.itertuples(index=False):
+        trajectory = ordered.loc[(ordered["unit_id"] == endpoint.unit_id) 
+                                 & (ordered["cycle"] <= endpoint.cycle)].tail(sequence_length)
+        
+        sequences.append(trajectory.loc[:, feature_columns].to_numpy())
+
+    return sequences
