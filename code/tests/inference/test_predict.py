@@ -1,5 +1,3 @@
-"""Tests for Random Forest inference."""
-
 import math
 import unittest
 from types import SimpleNamespace
@@ -30,7 +28,7 @@ class PredictionTests(unittest.TestCase):
              "setting_3": 100.0, "sensor_2": 10.0, "sensor_3": 100.0},
         ]
 
-        with patch("src.training.predict.load_preprocessing_state", return_value=artifacts):
+        with patch("src.inference.predict.load_preprocessing_state", return_value=artifacts):
             model_input = process_observations(
                 observations,
                 "preprocessing-run",
@@ -69,10 +67,10 @@ class PredictionTests(unittest.TestCase):
         self.assertEqual(values["sensor_2_rolling_slope_5"], 2.0)
         self.assertAlmostEqual(values["sensor_3_ewma"], 0.4)
 
-    @patch("src.training.predict.load_training_model")
-    @patch("src.training.predict.load_preprocessing_state")
-    @patch("src.training.predict.MlflowClient")
-    @patch("src.training.predict.configure_mlflow")
+    @patch("src.inference.predict.load_training_model")
+    @patch("src.inference.predict.load_preprocessing_state")
+    @patch("src.inference.predict.MlflowClient")
+    @patch("src.inference.predict.configure_mlflow")
     def test_predicts_with_matching_training_run(
         self, configure_mlflow, mlflow_client, load_preprocessing_state, load_training_model
     ) -> None:
@@ -93,6 +91,7 @@ class PredictionTests(unittest.TestCase):
             ),
         )
         model = MagicMock()
+        model.feature_names_in_ = ["sensor_2"]
         model.predict.return_value = [42.5]
         load_training_model.return_value = model
 
