@@ -1,100 +1,304 @@
 # Predictive Maintenance System for Turbofan Engines using Remaining Useful Life Estimation
 
-Predicting the Remaining Useful Life (RUL) of turbofan engines from multivariate sensor data.
+Aircraft engines generate multivariate sensor measurements over repeated operating cycles. As degradation progresses, these measurements capture changes in engine condition that can be used to estimate how much useful operating life remains.
 
-Model Input: Last N cycles of sensor measurements for an engine
-Model Output: Estimated RUL - the predicted number of operating cycles before failure.
+This system uses historical operating conditions and sensor trajectories to estimate the **Remaining Useful Life (RUL)** of a turbofan engine.
 
-## DATASET
+> **Given the observed operating history of an engine, predict the number of operational cycles remaining before failure.**
 
-- NASA PCoE Data Repository: https://www.nasa.gov/intelligent-systems-division/discovery-and-systems-health/pcoe/pcoe-data-set-repository/
+The system processes the available engine trajectory, applies the required preprocessing and model pipeline, and returns an estimated RUL for the latest observed cycle.
 
-NASA provides the original CMAPSSData.zip. The dataset comes from the **NASA Ames Prognostics Center of Excellence (PCoE)** and contains **four simulated turbofan degradation datasets** under different operating conditions and fault modes.
+### Input
 
-NASA's C-MAPSS Turbofan Engine Degradation dataset contains **run-to-failure time-series data from simulated aircraft engines**. Each engine produces operational settings and sensor readings over repeated cycles. 
-- Training engines are observed until failure; 
-- test engines stop before failure, 
-- and the task is to predict how many operational cycles remain.
-The raw data has multiple engine trajectories, operational conditions, sensor noise, and degradation over time. NASA provides four subsets with different combinations of operating conditions and fault modes.
+Each engine observation contains:
 
-## Project Setup
+* Engine/unit ID
+* Operating cycle
+* 3 operating settings
+* 21 sensor measurements
 
-Prerequisites: Linux or WSL, Python 3.12, Java 17+, and `uv`. 
+### Output
 
-Install the project dependencies:
-```bash
-cd nasa_c_mapss
-uv sync
+```text
+Predicted Remaining Useful Life (RUL)
 ```
 
-In every new terminal first run:
+RUL represents the estimated number of operational cycles the engine can continue operating before failure.
+
+---
+
+## NASA C-MAPSS Dataset
+
+The system is built using the **NASA C-MAPSS Turbofan Engine Degradation Dataset** from the NASA Ames Prognostics Center of Excellence (PCoE).
+
+Dataset source: https://www.nasa.gov/intelligent-systems-division/discovery-and-systems-health/pcoe/pcoe-data-set-repository/
+
+C-MAPSS contains simulated **run-to-failure multivariate time-series data** for turbofan engines. Each engine is observed across repeated operating cycles through operating settings and sensor measurements.
+
+The dataset contains four subsets with different combinations of operating conditions and fault modes:
+
+| Subset | Operating Conditions | Fault Modes |
+| ------ | -------------------- | ----------- |
+| FD001  | One                  | One         |
+| FD002  | Multiple             | One         |
+| FD003  | One                  | Multiple    |
+| FD004  | Multiple             | Multiple    |
+
+### Training Data
+
+Training trajectories contain complete engine histories from the beginning of operation until failure. These trajectories provide the degradation history required to derive RUL targets for model training.
+
+### Test Data
+
+Test trajectories are truncated before failure. The objective is to estimate the number of cycles remaining after the final observed cycle.
+
+### Dataset Directory
+
+After downloading and extracting `CMAPSSData.zip`, place the original dataset files under:
+
+```text
+Data/CMAPSSData/
+```
+
+with data corresponding to:
+
+```text
+FD001
+FD002
+FD003
+FD004
+```
+
+
+## Team Members
+
+|       Name        | Roll Number     
+| ----------------- | --------------- 
+|    Aanchal Agarwal      | DA25M534
+|    Tanya Suri     | DA25M628 
+
+
+## System Architecture, Components and Folder structure 
+
+![SystemArchitectureDiagram](SystemArchitectureDiagram.png)
+
+| Component               | Technology / Location                              | Role                                                                                                                                           |
+| ----------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Data**                | `Data/`, DVC                                       | Stores and versions raw C-MAPSS data and processed train/validation/test datasets.                                                             |
+| **Data Processing**     | PySpark, `code/src/data_processing/`               | Validates trajectories, generates RUL targets, handles operating regimes, scaling, temporal features, and model-ready tabular/sequential data. |
+| **Orchestration**       | Airflow, `code/src/dags/`                          | Orchestrates preprocessing for FD001–FD004 and records the resulting MLflow preprocessing runs.                                                |
+| **Model Training**      | Random Forest, XGBoost, LSTM, `code/src/training/` | Trains tree-based and sequence models using processed engine trajectories.                                                                     |
+| **Evaluation**          | `code/src/training/evaluation/`                    | Evaluates models using RMSE, MAE, NASA asymmetric score, prediction bias, and engine-level diagnostics.                                        |
+| **Experiment Tracking** | MLflow, `code/src/tracking/`                       | Tracks preprocessing and training runs, parameters, metrics, artifacts, preprocessing state, and trained models.                               |
+| **Inference**           | `code/src/inference/`                              | Loads the selected model and preprocessing state, transforms incoming trajectories consistently, and predicts RUL.                             |
+| **Serving**             | FastAPI, Docker, `code/api/`                       | Exposes `/health`, `/predict`, and `/metrics` endpoints for model serving.                                                                     |
+| **Monitoring**          | Prometheus, Grafana, `monitoring/`                 | Tracks prediction requests, errors, latency, RUL outputs, and configured service alerts.                                                       |
+
+
+### System Flow
+
+```text
+nasa_c_mapss/
+├── Data/
+│   ├── CMAPSSData/                    # Raw NASA C-MAPSS datasets
+│   ├── CMAPSSData.dvc                 # Raw-data DVC tracking
+│   ├── processed/                     # Processed Parquet datasets
+│   └── processed.dvc                  # Processed-data DVC tracking
+│
+├── code/
+│   ├── api/
+│   │   ├── app.py                     # FastAPI application and endpoints
+│   │   └── api_schemas.py             # Request and response schemas
+│   │
+│   ├── src/
+│   │   ├── dags/
+│   │   │   ├── airflow_config.py      # Airflow runtime configuration
+│   │   │   └── cmapss_preprocessing.py
+│   │   │
+│   │   ├── data_processing/
+│   │   │   ├── data_loader.py
+│   │   │   ├── schema.py
+│   │   │   ├── validation.py
+│   │   │   ├── preprocessing.py
+│   │   │   ├── feature_engineering.py
+│   │   │   ├── scaling.py
+│   │   │   ├── scaler_state.py
+│   │   │   ├── split.py
+│   │   │   ├── tabular.py
+│   │   │   ├── sequences.py
+│   │   │   ├── artifacts.py
+│   │   │   └── constants.py
+│   │   │
+│   │   ├── training/
+│   │   │   ├── tree_models/
+│   │   │   │   ├── run_tabular_training.py
+│   │   │   │   ├── train_random_forest.py
+│   │   │   │   ├── train_xgboost.py
+│   │   │   │   └── tabular.py
+│   │   │   │
+│   │   │   ├── lstm/
+│   │   │   │   ├── run_lstm.py
+│   │   │   │   └── train_lstm.py
+│   │   │   │
+│   │   │   └── evaluation/
+│   │   │       ├── model_evaluation_metrics.py
+│   │   │       ├── test_evaluation.py
+│   │   │       └── engine_endpoint_evaluation.py
+│   │   │
+│   │   ├── tracking/
+│   │   │   ├── mlflow_tracking.py
+│   │   │   ├── mlflow_run_id.py
+│   │   │   └── spark_mlflow_tracking.py
+│   │   │
+│   │   ├── inference/
+│   │   │   ├── predict.py
+│   │   │   └── inference_monitoring.py
+│   │   │
+│   │   └── build_spark.py
+│   │
+│   └── tests/                          # Automated test suite
+│
+├── monitoring/
+│   ├── prometheus.yml
+│   ├── prometheus-rules/
+│   │   └── alerts.yml
+│   └── grafana/
+│       ├── dashboards/
+│       └── provisioning/
+│
+├── mlruns/                             # Local MLflow tracking data
+├── Dockerfile.serve                    # FastAPI container image
+├── docker-compose.yml                  # Prometheus and Grafana services
+├── pyproject.toml                      # Dependencies and project settings
+└── readme.md
+```
+
+## Project Setup Instructions
+
+### Prerequisites
+
+* Linux or WSL2
+* Python 3.12
+* Java 17+
+* `uv`
+* Docker + Docker Compose
+
+### Install
+
 ```bash
-cd nasa_c_mapss
+git clone https://github.com/AanchalA/NASA-CMAPSS-TurboEngine-RUL.git
+cd NASA-CMAPSS-TurboEngine-RUL
+
+uv sync --frozen --extra offline --extra train --extra serve
+source .venv/bin/activate
+
+export PYTHONPATH="$PWD/code"
+export MLFLOW_TRACKING_URI="file://$PWD/mlruns"
+```
+
+In each new terminal:
+
+```bash
 source .venv/bin/activate
 export PYTHONPATH="$PWD/code"
+export MLFLOW_TRACKING_URI="file://$PWD/mlruns"
 ```
 
-## Run preprocessing with Airflow
+### Add Dataset
 
-Extract `CMAPSSData.zip` into `Data/CMAPSSData`.
+Extract `CMAPSSData.zip` into:
 
-Configure the DAG folder once from the repository root:
+```text
+Data/CMAPSSData/
+```
+
+The directory should contain the `train`, `test`, and `RUL` files for `FD001`–`FD004`.
+
+---
+
+## Run Preprocessing
+
+Configure Airflow once:
 
 ```bash
 export AIRFLOW_HOME="$PWD/.airflow"
+export AIRFLOW__CORE__DAGS_FOLDER="$PWD/code/src/dags"
+
 airflow db migrate
-sed -i "s|^dags_folder = .*|dags_folder = $PWD/code/src/dags|" "$AIRFLOW_HOME/airflow.cfg"
+airflow pools set spark_preprocessing 1 "Serializes local Spark preprocessing jobs"
 ```
 
 Start Airflow:
 
 ```bash
-export PYTHONPATH="$PWD/code"
-export AIRFLOW_HOME="$PWD/.airflow"
 airflow standalone
 ```
 
-In a second terminal, trigger preprocessing:
+In another terminal:
 
 ```bash
-export PYTHONPATH="$PWD/code"
-export AIRFLOW_HOME="$PWD/.airflow"
+source .venv/bin/activate
 
-airflow dags list-import-errors
-airflow dags list
+export PYTHONPATH="$PWD/code"
+export MLFLOW_TRACKING_URI="file://$PWD/mlruns"
+export AIRFLOW_HOME="$PWD/.airflow"
+export AIRFLOW__CORE__DAGS_FOLDER="$PWD/code/src/dags"
+
 airflow dags unpause cmapss_preprocessing
 airflow dags trigger --conf '{"subset":"ALL"}' cmapss_preprocessing
-airflow dags list-runs cmapss_preprocessing
 ```
 
-Use `FD001`, `FD002`, `FD003`, or `FD004` instead of `ALL` to process one subset. Processed Parquet data is written to `Data/processed/<subset>` and preprocessing runs are recorded in `mlruns` under `cmapss-preprocessing`.
+Use `FD001`, `FD002`, `FD003`, or `FD004` instead of `ALL` to process one subset.
 
-## Run model training
+Processed data is written to:
 
-Run preprocessing first. Then, from the repository root:
+```text
+Data/processed/<subset>/<preprocessing-run-id>/
+```
 
-Run the Random Forest baseline, replacing `FD001` with the subset you want to train:
+---
+
+## Run Model Training
+
+### Random Forest
 
 ```bash
-python code/src/training/run_training.py --subset-id FD001
+python code/src/training/tree_models/run_tabular_training.py \
+  --model-type random_forest \
+  --subset-id FD001
 ```
 
-The command trains on the processed data, evaluates validation and official test RUL, and records the model and metrics in MLflow.
-
-## Run model serving
-
-The `mlruns/` directory must contain completed preprocessing and training runs for the requested subset.
-
-### Run locally
+### XGBoost
 
 ```bash
-export MLFLOW_TRACKING_URI="file://$PWD/mlruns"
-uvicorn api.app:app --app-dir code --host 0.0.0.0 --port 8000
+python code/src/training/tree_models/run_tabular_training.py \
+  --model-type xgboost \
+  --subset-id FD001
 ```
 
-### Run with Docker
+### LSTM
 
-Docker is the only additional prerequisite. From the repository root:
+```bash
+python code/src/training/lstm/run_lstm.py \
+  --subset-id FD001
+```
+
+Replace `FD001` with the required subset. Models, metrics, and artifacts are recorded in MLflow.
+
+---
+
+## Run Model Serving
+
+### Local
+
+```bash
+uvicorn api.app:app \
+  --app-dir code \
+  --host 0.0.0.0 \
+  --port 8000
+```
+
+### Docker
 
 ```bash
 docker build -f Dockerfile.serve -t nasa-cmapss-api .
@@ -106,25 +310,29 @@ docker run --rm \
   nasa-cmapss-api
 ```
 
-The container mounts `mlruns/` read-only. It does not require the dataset, Java, or Spark.
+The serving container only requires the trained MLflow artifacts.
 
-### Verify
+---
+
+## API Endpoints
+
+### Health Check
 
 ```bash
 curl http://localhost:8000/health
 ```
 
-Expected response:
+Expected:
 
 ```json
 {"status":"ok"}
 ```
 
-Send one or more observations for one engine. All settings and sensor fields are required; when multiple cycles are supplied, the latest cycle is used.
+### Predict RUL
 
 ```bash
 curl -X POST http://localhost:8000/predict \
-  -H 'Content-Type: application/json' \
+  -H "Content-Type: application/json" \
   -d '{
     "subset_id": "FD004",
     "model_type": "RandomForestRegressor",
@@ -161,17 +369,79 @@ curl -X POST http://localhost:8000/predict \
   }'
 ```
 
-The API resolves the latest matching MLflow training run and returns `predicted_rul`.
+For XGBoost, use:
 
-## Run monitoring
+```json
+"model_type": "XGBRegressor"
+```
 
-With the API running on host port 8000, start Prometheus and Grafana:
+For LSTM, use:
+
+```json
+"model_type": "LSTMRegressor"
+```
+
+For LSTM predictions, supply multiple observations from the same engine when
+available. The API orders them by cycle and uses the latest sequence window.
+
+Supported model identifiers:
+
+| Training model  | API `model_type`        |
+| --------------- | ----------------------- |
+| `random_forest` | `RandomForestRegressor` |
+| `xgboost`       | `XGBRegressor`          |
+| `lstm`          | `LSTMRegressor`         |
+
+Example response:
+
+```json
+{
+  "subset_id": "FD004",
+  "model_type": "RandomForestRegressor",
+  "predicted_rul": 87.42
+}
+```
+
+Use real engine observations for meaningful predictions. For Random Forest and
+XGBoost, prediction uses the latest processed observation. For LSTM, prediction
+uses the latest sequence of processed observations.
+
+### Metrics
+
+```bash
+curl http://localhost:8000/metrics
+```
+
+Interactive API documentation:
+
+```text
+http://localhost:8000/docs
+```
+
+---
+
+## Run Monitoring
+
+With the API running:
 
 ```bash
 docker compose up -d
 ```
 
-FastAPI exposes Prometheus data at `http://localhost:8000/metrics`.
+| Service    | Address                 |
+| ---------- | ----------------------- |
+| FastAPI    | `http://localhost:8000` |
+| Prometheus | `http://localhost:9090` |
+| Grafana    | `http://localhost:3000` |
 
-Prometheus is available at `http://localhost:9090` and Grafana at
-`http://localhost:3000` (default user `admin`, password `admin`). 
+Grafana default credentials:
+
+```text
+admin / admin
+```
+
+Stop monitoring:
+
+```bash
+docker compose down
+```
