@@ -1,20 +1,11 @@
-import json
-from functools import cache
-from typing import cast
-
 import pandas as pd
+from typing import cast
 from mlflow import MlflowClient
-import mlflow.sklearn as mlflow_sklearn
 
 from src.data_processing import add_pandas_temporal_features
 from src.data_processing.constants import SUPPORTED_SUBSETS
 from src.data_processing.scaler_state import RegimeSensorScaler
-from src.tracking import configure_mlflow, load_preprocessing_state
-
-
-@cache
-def load_training_model(training_run_id):
-    return mlflow_sklearn.load_model(f"runs:/{training_run_id}/model")
+from src.tracking import configure_mlflow, load_preprocessing_state, load_training_feature_columns, load_training_model
 
 
 def process_observations(observations, preprocessing_run_id, feature_columns):
@@ -71,12 +62,12 @@ def predict_rul(subset_id, training_run_id, observations):
         raise ValueError(f"training run ({training_run_id}) subset {training_subset} does not match {normalized_subset}")
 
     preprocessing_run_id = training_run.data.params["preprocessing_run_id"]
-    feature_columns = json.loads(training_run.data.params["feature_names"])
     
+    model = load_training_model(training_run_id)
+    feature_columns = load_training_feature_columns(training_run_id)
+
     model_input = process_observations(observations=observations,
                                        preprocessing_run_id=preprocessing_run_id,
                                        feature_columns=feature_columns)
-
-    model = load_training_model(training_run_id)
     
     return float(model.predict(model_input)[0])

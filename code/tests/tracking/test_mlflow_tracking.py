@@ -16,11 +16,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT / "code"))
 
 from src.data_processing.artifacts import PreprocessingArtifacts
-from src.tracking.mlflow_tracking import (
-    configure_mlflow,
-    load_preprocessing_state,
-    log_preprocessing_state,
-)
+from src.tracking.mlflow_tracking import (configure_mlflow,
+                                          load_preprocessing_state,
+                                          log_preprocessing_state,
+                                          load_training_feature_columns,
+                                          load_training_model)
+
 from src.tracking.spark_mlflow_tracking import (
     load_preprocessing_model,
     log_preprocessing_model,
@@ -28,6 +29,26 @@ from src.tracking.spark_mlflow_tracking import (
 
 
 class MlflowTrackingTests(unittest.TestCase):
+    @patch("src.tracking.mlflow_tracking.mlflow_pyfunc.load_model")
+    def test_training_model_loading_uses_the_run_reference(self, load_model) -> None:
+        expected = object()
+        load_model.return_value = expected
+
+        loaded = load_training_model("training-run")
+
+        self.assertIs(loaded, expected)
+        load_model.assert_called_once_with("runs:/training-run/model")
+
+    @patch("src.tracking.mlflow_tracking.mlflow_artifacts.load_dict")
+    def test_training_feature_loading_uses_the_run_reference(self, load_dict) -> None:
+        expected = ["sensor_2", "sensor_3"]
+        load_dict.return_value = expected
+
+        loaded = load_training_feature_columns("training-run")
+
+        self.assertIs(loaded, expected)
+        load_dict.assert_called_once_with("runs:/training-run/feature_names.json")
+
     def test_custom_state_round_trips_through_local_mlflow(self) -> None:
         artifacts = PreprocessingArtifacts(
             regime_mapping={(0.0, 0.0, 100.0): 1},

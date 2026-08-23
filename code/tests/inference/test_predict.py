@@ -67,12 +67,18 @@ class PredictionTests(unittest.TestCase):
         self.assertEqual(values["sensor_2_rolling_slope_5"], 2.0)
         self.assertAlmostEqual(values["sensor_3_ewma"], 0.4)
 
+    @patch("src.inference.predict.load_training_feature_columns")
     @patch("src.inference.predict.load_training_model")
     @patch("src.inference.predict.load_preprocessing_state")
     @patch("src.inference.predict.MlflowClient")
     @patch("src.inference.predict.configure_mlflow")
     def test_predicts_with_matching_training_run(
-        self, configure_mlflow, mlflow_client, load_preprocessing_state, load_training_model
+        self,
+        configure_mlflow,
+        mlflow_client,
+        load_preprocessing_state,
+        load_training_model,
+        load_training_feature_columns,
     ) -> None:
         del configure_mlflow
         mlflow_client.return_value.get_run.return_value = SimpleNamespace(
@@ -91,9 +97,9 @@ class PredictionTests(unittest.TestCase):
             ),
         )
         model = MagicMock()
-        model.feature_names_in_ = ["sensor_2"]
         model.predict.return_value = [42.5]
         load_training_model.return_value = model
+        load_training_feature_columns.return_value = ["sensor_2"]
 
         prediction = predict_rul(
             "fd001", "training-run",
@@ -103,6 +109,7 @@ class PredictionTests(unittest.TestCase):
 
         self.assertEqual(prediction, 42.5)
         load_training_model.assert_called_once_with("training-run")
+        load_training_feature_columns.assert_called_once_with("training-run")
 
 
 if __name__ == "__main__":
