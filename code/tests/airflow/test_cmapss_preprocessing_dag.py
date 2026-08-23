@@ -1,5 +1,3 @@
-"""Airflow-runtime tests; run only in the existing WSL Airflow environment."""
-
 import importlib.util
 from pathlib import Path
 import unittest
@@ -46,6 +44,7 @@ class CmapssPreprocessingDagTests(unittest.TestCase):
             {"preprocess_subset", "collect_run_ids"},
         )
         preprocessing_task = dag.get_task("preprocess_subset")
+        self.assertEqual(preprocessing_task.pool, "spark_preprocessing")
         self.assertEqual(
             preprocessing_task.upstream_task_ids,
             {"resolve_runtime", "select_subsets"},

@@ -11,6 +11,7 @@ from src.build_spark import spark_session_context
 
 
 DAG_ID = "cmapss_preprocessing"
+SPARK_PREPROCESSING_POOL = "spark_preprocessing"
 SUBSETS = ("FD001", "FD002", "FD003", "FD004")
 
 
@@ -44,7 +45,7 @@ def cmapss_preprocessing_dag():
             raise ValueError(f"Unsupported C-MAPSS subset: {requested}")
         return [requested]
 
-    @task
+    @task(pool=SPARK_PREPROCESSING_POOL)
     def preprocess_subset(subset, runtime):        
         from src.data_processing.preprocessing import run_subset_preprocessing
 
@@ -55,7 +56,8 @@ def cmapss_preprocessing_dag():
             result = run_subset_preprocessing(spark=spark,
                                               subset=subset,
                                               raw_data_dir=Path(runtime["raw_data_dir"]),
-                                              output_dir=Path(runtime["processed_data_dir"]))
+                                              output_dir=Path(runtime["processed_data_dir"]),
+                                              include_temporal_features=False)
 
         return result.run_id
 

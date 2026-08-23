@@ -1,5 +1,3 @@
-"""Tests for the production C-MAPSS preprocessing composition layer."""
-
 import os
 import shutil
 import sys
@@ -19,19 +17,19 @@ from pyspark.sql.types import NumericType
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT / "code"))
 
-from src.data_processing.preprocessing import (  # noqa: E402
+from src.data_processing.preprocessing import (
     PreprocessingRunResult,
     finalize_preprocessing_output,
     run_subset_preprocessing,
 )
-from src.data_processing.scaler_state import RegimeSensorScaler  # noqa: E402
-from src.data_processing.scaling import (  # noqa: E402
+from src.data_processing.scaler_state import RegimeSensorScaler
+from src.data_processing.scaling import (
     apply_global_sensor_scaler,
     apply_sensor_scaler,
     fit_regime_sensor_scaler,
 )
-from src.tracking.mlflow_tracking import configure_mlflow, load_preprocessing_state  # noqa: E402
-from src.tracking.spark_mlflow_tracking import load_preprocessing_model  # noqa: E402
+from src.tracking.mlflow_tracking import configure_mlflow, load_preprocessing_state
+from src.tracking.spark_mlflow_tracking import load_preprocessing_model
 
 
 def _raw_row(unit_id: int, cycle: int) -> str:
@@ -174,6 +172,34 @@ class PreprocessingOutputContractTests(unittest.TestCase):
             ["unit_id", "cycle", "RUL", "operating_regime", "sensor_2"],
         )
 
+    def test_temporal_features_are_optional_and_use_scaled_sensor_history(self) -> None:
+        frame = self.spark.createDataFrame(
+            [
+                (1, 3, 0, 1, 18.0),
+                (1, 1, 2, 1, 10.0),
+                (1, 2, 1, 1, 14.0),
+                (2, 1, 1, 1, 100.0),
+                (2, 2, 0, 1, 90.0),
+            ],
+            "unit_id int, cycle int, RUL int, regime int, sensor_2 double",
+        )
+
+        output = finalize_preprocessing_output(
+            frame,
+            ("sensor_2",),
+            include_temporal_features=True,
+        )
+        rows = output.orderBy("unit_id", "cycle").collect()
+
+        self.assertEqual(rows[1]["sensor_2_lag_1"], 10.0)
+        self.assertEqual(rows[1]["sensor_2_diff_1"], 4.0)
+        self.assertEqual(rows[1]["sensor_2_rolling_mean_5"], 12.0)
+        self.assertAlmostEqual(rows[1]["sensor_2_rolling_std_5"], 2.8284271247461903)
+        self.assertEqual(rows[1]["sensor_2_rolling_slope_5"], 4.0)
+        self.assertEqual(rows[1]["sensor_2_ewma"], 10.8)
+        self.assertIsNone(rows[3]["sensor_2_lag_1"])
+        self.assertEqual(len(output.columns) - 4, 15)
+
 class PreprocessingRunnerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -214,17 +240,35 @@ class PreprocessingRunnerTests(unittest.TestCase):
                 second = run_subset_preprocessing(
                     self.spark, "FD001", raw, processed
                 )
+                temporal = run_subset_preprocessing(
+                    self.spark,
+                    "FD001",
+                    raw,
+                    root / "processed-temporal",
+                    include_temporal_features=True,
+                )
                 configure_mlflow()
                 loaded = load_preprocessing_state(first.run_id)
                 loaded_model = load_preprocessing_model(first.run_id)
 
             self.assertNotEqual(first.run_id, second.run_id)
+            self.assertNotEqual(first.train_output_path, second.train_output_path)
+            self.assertEqual(Path(first.train_output_path).parent.name, first.run_id)
+            self.assertEqual(Path(second.train_output_path).parent.name, second.run_id)
             self.assertEqual(first.train_row_count, second.train_row_count)
             self.assertEqual(first.train_row_count + first.validation_row_count, 12)
             self.assertEqual(first.test_row_count, 4)
             self.assertEqual(first.scaling_strategy, "global")
             self.assertEqual(first.regime_count, 1)
             self.assertEqual(first.feature_count, 1)
+            self.assertEqual(temporal.feature_count, 15)
+            temporal_columns = self.spark.read.parquet(
+                temporal.train_output_path
+            ).columns
+            self.assertIn("sensor_2_lag_1", temporal_columns)
+            self.assertIn("sensor_2_rolling_mean_5", temporal_columns)
+            self.assertIn("sensor_2_rolling_slope_5", temporal_columns)
+            self.assertIn("sensor_2_ewma", temporal_columns)
             self.assertEqual(
                 self.spark.read.parquet(first.train_output_path).count(),
                 first.train_row_count,

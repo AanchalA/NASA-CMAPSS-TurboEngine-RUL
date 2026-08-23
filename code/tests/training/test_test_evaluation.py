@@ -1,5 +1,3 @@
-"""Tests for official C-MAPSS test-set evaluation."""
-
 import math
 import tempfile
 import unittest
@@ -10,18 +8,20 @@ from unittest.mock import MagicMock, call, patch
 import pandas as pd
 
 
-from src.training.test_evaluation import evaluate_test_data
+from src.training.evaluation.test_evaluation import evaluate_test_data
 
 
 class TestEvaluationTests(unittest.TestCase):
-    @patch("src.training.test_evaluation.mlflow_sklearn.load_model")
-    @patch("src.training.test_evaluation.MlflowClient")
-    @patch("src.training.test_evaluation.configure_mlflow")
+    @patch("src.training.evaluation.test_evaluation.load_training_feature_columns")
+    @patch("src.training.evaluation.test_evaluation.load_training_model")
+    @patch("src.training.evaluation.test_evaluation.MlflowClient")
+    @patch("src.training.evaluation.test_evaluation.configure_mlflow")
     def test_uses_final_cycles_and_official_rul(
         self,
         configure_mlflow,
         mlflow_client,
-        load_model,
+        load_training_model,
+        load_training_feature_columns,
     ) -> None:
         del configure_mlflow
         client = mlflow_client.return_value
@@ -29,13 +29,15 @@ class TestEvaluationTests(unittest.TestCase):
             data=SimpleNamespace(
                 params={
                     "subset": "FD004",
+                    "preprocessing_run_id": "preprocessing-run",
                     "feature_names": '["sensor_2", "sensor_3"]',
                 }
             )
         )
         model = MagicMock()
         model.predict.return_value = [20.0, 10.0]
-        load_model.return_value = model
+        load_training_model.return_value = model
+        load_training_feature_columns.return_value = ["sensor_2", "sensor_3"]
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -45,7 +47,8 @@ class TestEvaluationTests(unittest.TestCase):
             (raw_data_dir / "RUL_FD004.txt").write_text(
                 "25\n5\n", encoding="utf-8"
             )
-            (processed_data_dir / "FD004").mkdir(parents=True)
+            preprocessing_path = processed_data_dir / "FD004" / "preprocessing-run"
+            preprocessing_path.mkdir(parents=True)
             pd.DataFrame(
                 [
                     (1, 1, 999, 0.1, 0.2),
@@ -54,7 +57,7 @@ class TestEvaluationTests(unittest.TestCase):
                     (2, 3, 999, 0.7, 0.8),
                 ],
                 columns=["unit_id", "cycle", "RUL", "sensor_2", "sensor_3"],
-            ).to_parquet(processed_data_dir / "FD004" / "test")
+            ).to_parquet(preprocessing_path / "test")
 
             metrics = evaluate_test_data(
                 subset_id="fd004",
@@ -77,7 +80,11 @@ class TestEvaluationTests(unittest.TestCase):
                 call("training-run", "test_nasa_score", metrics["nasa_score"]),
             ]
         )
-        load_model.assert_called_once_with("runs:/training-run/model")
+        diagnostics = client.log_text.call_args.args[1]
+        self.assertIn("unit_id,cutoff_cycle,true_RUL,prediction,error,nasa_contribution", diagnostics)
+        self.assertEqual(client.log_text.call_args.args[2], "test_predictions.csv")
+        load_training_model.assert_called_once_with("training-run")
+        load_training_feature_columns.assert_called_once_with("training-run")
 
 
 if __name__ == "__main__":
