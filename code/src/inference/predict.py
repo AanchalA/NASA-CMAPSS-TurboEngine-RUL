@@ -1,5 +1,7 @@
-import pandas as pd
 from typing import cast
+
+import numpy as np
+import pandas as pd
 from mlflow import MlflowClient
 
 from src.data_processing import add_pandas_temporal_features
@@ -8,7 +10,7 @@ from src.data_processing.scaler_state import RegimeSensorScaler
 from src.tracking import configure_mlflow, load_preprocessing_state, load_training_feature_columns, load_training_model
 
 
-def process_observations(observations, preprocessing_run_id, feature_columns):
+def process_observations(observations, preprocessing_run_id, feature_columns, sequence_length=None):
 
     if len({observation["unit_id"] for observation in observations}) != 1:
         raise ValueError("inference requires observations from exactly one engine")
@@ -44,11 +46,19 @@ def process_observations(observations, preprocessing_run_id, feature_columns):
     if include_temporal_features:
         trajectory = add_pandas_temporal_features(trajectory, artifacts.retained_sensor_columns)
 
-    return trajectory.iloc[[-1]].loc[:, feature_columns]
+    processed = trajectory.loc[:, feature_columns]
+
+    if sequence_length is None:
+        return processed.iloc[[-1]]
+    if sequence_length < 1:
+        raise ValueError("LSTM sequence_length must be at least 1")
+
+    return processed.tail(sequence_length).fillna(0.0).astype(np.float32)
 
 
 def predict_rul(subset_id, training_run_id, observations):
     
+    LSTM_MODEL_TYPE = "LSTMRegressor"
     normalized_subset = subset_id.upper()
     if normalized_subset not in SUPPORTED_SUBSETS:
         raise ValueError(f"unsupported C-MAPSS subset: {subset_id}")
@@ -63,11 +73,22 @@ def predict_rul(subset_id, training_run_id, observations):
 
     preprocessing_run_id = training_run.data.params["preprocessing_run_id"]
     
+    model_type = training_run.data.params.get("model_type")
+    sequence_length = None
+    if model_type == LSTM_MODEL_TYPE:
+        try:
+            sequence_length = int(training_run.data.params["sequence_length"])
+        except (KeyError, ValueError) as error:
+            raise ValueError("LSTM training run has an invalid sequence_length parameter") from error
+
     model = load_training_model(training_run_id)
     feature_columns = load_training_feature_columns(training_run_id)
 
-    model_input = process_observations(observations=observations,
-                                       preprocessing_run_id=preprocessing_run_id,
-                                       feature_columns=feature_columns)
+    processed_observations = process_observations(observations=observations,
+                                                  preprocessing_run_id=preprocessing_run_id,
+                                                  feature_columns=feature_columns,
+                                                  sequence_length=sequence_length)
+    model_input = (processed_observations.to_numpy(dtype=np.float32)[None, ...]
+                   if model_type == LSTM_MODEL_TYPE else processed_observations)
     
     return float(model.predict(model_input)[0])
