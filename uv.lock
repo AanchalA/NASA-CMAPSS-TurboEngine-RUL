@@ -2868,10 +2868,11 @@ name = "nasa-c-mapss"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "apache-airflow" },
     { name = "mlflow" },
     { name = "pandas" },
+    { name = "prometheus-client" },
     { name = "scikit-learn" },
-    { name = "seaborn" },
 ]
 
 [package.optional-dependencies]
@@ -2910,6 +2911,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "apache-airflow", specifier = ">=3.2.2" },
     { name = "apache-airflow", marker = "extra == 'offline'", specifier = "==3.2.2" },
     { name = "dvc", marker = "extra == 'offline'", specifier = ">=3.67.1" },
     { name = "fastapi", marker = "extra == 'serve'", specifier = ">=0.141.1" },
@@ -2921,12 +2923,12 @@ requires-dist = [
     { name = "mlflow", specifier = ">=3.14.0" },
     { name = "nbclient", marker = "extra == 'offline'", specifier = ">=0.11.0" },
     { name = "pandas", specifier = ">=2.2,<3" },
+    { name = "prometheus-client", specifier = ">=0.26.0" },
     { name = "prometheus-client", marker = "extra == 'serve'", specifier = ">=0.26.0" },
     { name = "pyarrow", marker = "extra == 'train'" },
     { name = "pyspark", marker = "extra == 'offline'", specifier = ">=4.0.1" },
     { name = "scikit-learn", specifier = ">=1.8.0" },
     { name = "scipy", marker = "extra == 'offline'", specifier = ">=1.18.0" },
-    { name = "seaborn", specifier = ">=0.13.2" },
     { name = "seaborn", marker = "extra == 'offline'", specifier = ">=0.13.2" },
     { name = "torch", marker = "extra == 'serve'", specifier = ">=2.13.0", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torch", marker = "extra == 'train'", specifier = ">=2.13.0", index = "https://download.pytorch.org/whl/cpu" },

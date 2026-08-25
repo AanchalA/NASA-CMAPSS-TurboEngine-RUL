@@ -28,11 +28,9 @@ def add_rul_target(df):
 
 
 def add_life_ratio_target(df):
-    return df.withColumn(
-        "life_ratio",
-        F.col("cycle").cast("double")
-        / (F.col("cycle") + F.col("RUL")).cast("double"),
-    ).drop("RUL")
+    return df.withColumn("life_ratio", 
+                         F.col("cycle").cast("double") / (F.col("cycle") + F.col("RUL")).cast("double")
+                         ).drop("RUL")
 
 
 # _______________ TEST DATA LOADER _______________ 
