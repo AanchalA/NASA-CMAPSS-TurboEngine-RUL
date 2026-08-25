@@ -3,6 +3,7 @@ from os import getenv
 from pathlib import Path
 
 import mlflow
+import mlflow.lightgbm as mlflow_lightgbm
 import mlflow.sklearn as mlflow_sklearn
 import mlflow.xgboost as mlflow_xgboost
 import numpy as np
@@ -75,6 +76,8 @@ def train_tabular_model( model, model_name, subset_id, preprocessing_run_id, pro
         
         if model_name == "xgboost":
             mlflow_xgboost.log_model(model, name="model")
+        elif model_name == "lightgbm":
+            mlflow_lightgbm.log_model(model, name="model")
         else:
             mlflow_sklearn.log_model(model, name="model", pip_requirements=mlflow_sklearn.get_default_pip_requirements())
 

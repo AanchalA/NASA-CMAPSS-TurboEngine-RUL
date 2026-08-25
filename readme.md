@@ -4,11 +4,66 @@ Aircraft engines generate multivariate sensor measurements over repeated operati
 
 This system uses historical operating conditions and sensor trajectories to estimate the **Remaining Useful Life (RUL)** of a turbofan engine.
 
-> **Given the observed operating history of an engine, predict the number of operational cycles remaining before failure.**
+RUL represents the estimated number of operational cycles the engine can continue operating before failure.
 
-The system processes the available engine trajectory, applies the required preprocessing and model pipeline, and returns an estimated RUL for the latest observed cycle.
+---
 
-### Input
+## NASA C-MAPSS Dataset
+
+This system is built using the [**NASA C-MAPSS Turbofan Engine Degradation Dataset**](https://data.nasa.gov/dataset/cmapss-jet-engine-simulated-data), provided by the **NASA Ames Prognostics Center of Excellence (PCoE)**.
+
+Dataset repository: [NASA PCoE Data Set Repository](https://www.nasa.gov/intelligent-systems-division/discovery-and-systems-health/pcoe/pcoe-data-set-repository/)
+
+Engine degradation is simulated using the **Commercial Modular Aero-Propulsion System Simulation (C-MAPSS)**. The dataset contains simulated **run-to-failure multivariate time-series data** for turbofan engines, where each engine is observed over successive operating cycles through:
+
+* operational setting variables,
+* multiple sensor measurements, and
+* engine cycle information.
+
+These measurements capture the progressive evolution of engine degradation until failure, making the dataset suitable for **Remaining Useful Life (RUL) estimation** and predictive-maintenance research.
+
+C-MAPSS is divided into four subsets, each representing a different combination of **operating conditions** and **fault modes**:
+
+| Subset    | Operating Conditions | Fault Modes                       | Num Train Trjectories | Num Test Trjectories |
+| --------- | -------------------- | --------------------------------- | --------------------- | -------------------- |
+| **FD001** | One (Sea Level)      | HPC degradation                   | 100                   | 100                  |
+| **FD002** | Multiple             | HPC degradation                   | 260                   | 259                  |
+| **FD003** | One (Sea Level)      | HPC degradation + Fan degradation | 100                   | 100                  |
+| **FD004** | Multiple             | HPC degradation + Fan degradation | 248                   | 249                  |
+
+The subsets therefore increase in complexity from single-condition, single-fault scenarios to datasets containing both **multiple operating regimes and multiple degradation modes**.
+
+
+### Fault Modes
+
+The C-MAPSS subsets simulate degradation in two engine components:
+
+* **HPC degradation:** Degradation of the **High-Pressure Compressor (HPC)**. This is the only fault mode represented in **FD001** and **FD002**.
+* **Fan degradation:** Degradation of the engine **fan section**. **FD003** and **FD004** include both **HPC degradation** and **fan degradation** fault modes.
+
+A key limitation of the dataset is that the standard C-MAPSS files do **not** provide a per-engine fault-mode label. Fault modes are defined only at the **subset level**. Therefore, FD003 and FD004 cannot not be use for supervised fault classification unless additional per-engine fault labels are introduced from an external source.
+
+### Operating Conditions
+
+C-MAPSS simulates turbofan operation under **six operating conditions**, defined by combinations of three operational settings: **altitude, Mach number, and Throttle Resolver Angle (TRA)**.
+
+| Condition | Altitude | Mach Number | TRA |
+| --------- | -------: | ----------: | --: |
+| **1**     |        0 |        0.00 | 100 |
+| **2**     |       10 |        0.25 | 100 |
+| **3**     |       20 |        0.70 | 100 |
+| **4**     |       25 |        0.62 |  60 |
+| **5**     |       35 |        0.84 | 100 |
+| **6**     |       42 |        0.84 | 100 |
+
+The recorded operational-setting values may vary slightly around these nominal conditions. For example, an altitude corresponding to the nominal value **25** may appear as **24.453** rather than exactly 25.
+
+Consequently, the operating conditions are represented by **clusters of nearby operational-setting values rather than perfectly fixed values**. In the C-MAPSS subsets, **FD001** and **FD003** operate under a single condition, while **FD002** and **FD004** contain observations across multiple operating conditions.
+
+
+### Training Data
+
+Training trajectories contain complete engine histories (for 218 turbofan jet engines) from the beginning of operation until failure. These trajectories provide the degradation history required to derive RUL targets for model training.
 
 Each engine observation contains:
 
@@ -17,65 +72,56 @@ Each engine observation contains:
 * 3 operating settings
 * 21 sensor measurements
 
-### Output
+#### Input Data
+
+Index Names:
+- "engine" : Engine No.
+- "cycle" : Time, In Cycles
+
+Setting Names:
+- "setting1" : Operation Setting 1
+- "setting2" : Operation Setting 2
+- "setting3" : Operation Setting 3
+
+Sensor Names:
+- "sensor1" : Fan Inlet Temperature (◦R)
+- "sensor2" : LPC Outlet Temperature (◦R)
+- "sensor3" : HPC Outlet Temperature (◦R)
+- "sensor4" : LPT Outlet Temperature (◦R)
+- "sensor5" : Fan Inlet Pressure (psia)
+- "sensor6" : Bypass-Duct Pressure (psia)
+- "sensor7" : HPC Outlet Pressure (psia)
+- "sensor8" : Physical Fan Speed (rpm)
+- "sensor9" : Physical Core Speed (rpm)
+- "sensor10" : Engine Pressure Ratio(P50/P2)
+- "sensor11" : HPC Outlet Static Pressure (psia)
+- "sensor12" : Ratio of Fuel Flow to Ps30 (pps/psia)
+- "sensor13" : Corrected Fan Speed (rpm)
+- "sensor14" : Corrected Core Speed (rpm)
+- "sensor15" : Bypass Ratio
+- "sensor16" : Burner Fuel-Air Ratio
+- "sensor17" : Bleed Enthalpy
+- "sensor18" : Required Fan Speed
+- "sensor19" : Required Fan Conversion Speed
+- "sensor20" : High-Pressure Turbines Cool Air Flow
+- "sensor21" : Low-Pressure Turbines Cool Air Flow
+
+#### Output Prediction
 
 ```text
-Predicted Remaining Useful Life (RUL)
+Remaining Useful Life (RUL)
 ```
-
-RUL represents the estimated number of operational cycles the engine can continue operating before failure.
-
----
-
-## NASA C-MAPSS Dataset
-
-The system is built using the **NASA C-MAPSS Turbofan Engine Degradation Dataset** from the NASA Ames Prognostics Center of Excellence (PCoE).
-
-Dataset source: https://www.nasa.gov/intelligent-systems-division/discovery-and-systems-health/pcoe/pcoe-data-set-repository/
-
-C-MAPSS contains simulated **run-to-failure multivariate time-series data** for turbofan engines. Each engine is observed across repeated operating cycles through operating settings and sensor measurements.
-
-The dataset contains four subsets with different combinations of operating conditions and fault modes:
-
-| Subset | Operating Conditions | Fault Modes |
-| ------ | -------------------- | ----------- |
-| FD001  | One                  | One         |
-| FD002  | Multiple             | One         |
-| FD003  | One                  | Multiple    |
-| FD004  | Multiple             | Multiple    |
-
-### Training Data
-
-Training trajectories contain complete engine histories from the beginning of operation until failure. These trajectories provide the degradation history required to derive RUL targets for model training.
 
 ### Test Data
 
 Test trajectories are truncated before failure. The objective is to estimate the number of cycles remaining after the final observed cycle.
-
-### Dataset Directory
-
-After downloading and extracting `CMAPSSData.zip`, place the original dataset files under:
-
-```text
-Data/CMAPSSData/
-```
-
-with data corresponding to:
-
-```text
-FD001
-FD002
-FD003
-FD004
-```
-
 
 ## Team Members
 
 |       Name        | Roll Number     
 | ----------------- | --------------- 
 |    Aanchal Agarwal      | DA25M534
-|    Tanya Suri     | DA25M628 
+|    Tanya Suri           | DA25M628 
 
 
 ## System Architecture, Components and Folder structure 
@@ -206,17 +252,16 @@ export MLFLOW_TRACKING_URI="file://$PWD/mlruns"
 
 ### Add Dataset
 
-Extract `CMAPSSData.zip` into:
+After downloading and extracting the data [`CMAPSSData.zip`](https://phm-datasets.s3.amazonaws.com/NASA/6.+Turbofan+Engine+Degradation+Simulation+Data+Set.zip), place the original dataset files under:
 
 ```text
 Data/CMAPSSData/
 ```
-
 The directory should contain the `train`, `test`, and `RUL` files for `FD001`–`FD004`.
 
 ---
 
-## Run Preprocessing
+### Run Preprocessing
 
 Configure Airflow once:
 

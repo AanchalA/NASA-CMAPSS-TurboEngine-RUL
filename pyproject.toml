@@ -7,19 +7,23 @@ requires-python = ">=3.12"
 dependencies = [
     "mlflow>=3.14.0",
     "pandas>=2.2,<3",
-    "scikit-learn>=1.8.0",
+    "scikit-learn>=1.8.0"
 ]
 
 [project.optional-dependencies]
 train = [
     "pyarrow",
-    "torch>=2.7",
-    "xgboost-cpu>=3.0",
+    "lightgbm>=4.7.0",    
+    "torch>=2.13.0",
+    "xgboost-cpu>=3.4.1",
 ]
 serve = [
     "fastapi>=0.141.1",
     "uvicorn>=0.52.4",
     "prometheus-client>=0.26.0",
+    "lightgbm>=4.7.0",    
+    "torch>=2.13.0",    
+    "xgboost-cpu>=3.4.1",
 ]
 offline = [
     "apache-airflow==3.2.2",

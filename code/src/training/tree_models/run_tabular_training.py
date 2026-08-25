@@ -2,10 +2,10 @@ import argparse
 
 from src.training import evaluate_test_data
 from src.tracking.mlflow_run_id import fetch_run_id
-from src.training.tree_models import train_random_forest, train_xgboost
+from src.training.tree_models import train_lightgbm, train_random_forest, train_xgboost
 
 
-MODEL_TYPES = ("random_forest", "xgboost")
+MODEL_TYPES = ("lightgbm", "random_forest", "xgboost")
 
 
 def parse_args():
@@ -25,7 +25,11 @@ def run_training(model_type, subset_id, preprocessing_run_id,
     
     print(f"[{subset_id.upper()}] starting model training...", flush=True)
 
-    trainer = train_random_forest if model_type == "random_forest" else train_xgboost
+    trainer = {
+        "lightgbm": train_lightgbm,
+        "random_forest": train_random_forest,
+        "xgboost": train_xgboost,
+    }[model_type]
     
     training_run_id = trainer(subset_id=subset_id,
                               preprocessing_run_id=preprocessing_run_id,
