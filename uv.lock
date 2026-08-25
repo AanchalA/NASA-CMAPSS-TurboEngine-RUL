@@ -2870,7 +2870,10 @@ offline = [
 serve = [
     { name = "fastapi" },
     { name = "prometheus-client" },
+    { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
     { name = "uvicorn" },
+    { name = "xgboost-cpu" },
 ]
 train = [
     { name = "pyarrow" },
@@ -2901,8 +2904,10 @@ requires-dist = [
     { name = "scikit-learn", specifier = ">=1.8.0" },
     { name = "scipy", marker = "extra == 'offline'", specifier = ">=1.18.0" },
     { name = "seaborn", marker = "extra == 'offline'", specifier = ">=0.13.2" },
+    { name = "torch", marker = "extra == 'serve'", specifier = ">=2.7", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torch", marker = "extra == 'train'", specifier = ">=2.7", index = "https://download.pytorch.org/whl/cpu" },
     { name = "uvicorn", marker = "extra == 'serve'", specifier = ">=0.52.4" },
+    { name = "xgboost-cpu", marker = "extra == 'serve'", specifier = ">=3.0" },
     { name = "xgboost-cpu", marker = "extra == 'train'", specifier = ">=3.0" },
 ]
 provides-extras = ["train", "serve", "offline"]

@@ -20,6 +20,8 @@ serve = [
     "fastapi>=0.141.1",
     "uvicorn>=0.52.4",
     "prometheus-client>=0.26.0",
+    "torch>=2.7",
+    "xgboost-cpu>=3.0",
 ]
 offline = [
     "apache-airflow==3.2.2",
