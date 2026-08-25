@@ -108,7 +108,7 @@ class PreprocessingOutputContractTests(unittest.TestCase):
         expected_columns = [
             "unit_id",
             "cycle",
-            "RUL",
+            "life_ratio",
             "operating_regime",
             "sensor_2",
         ]
@@ -169,7 +169,7 @@ class PreprocessingOutputContractTests(unittest.TestCase):
         self.assertEqual(global_output.schema, regime_output.schema)
         self.assertEqual(
             global_output.columns,
-            ["unit_id", "cycle", "RUL", "operating_regime", "sensor_2"],
+            ["unit_id", "cycle", "life_ratio", "operating_regime", "sensor_2"],
         )
 
     def test_temporal_features_are_optional_and_use_scaled_sensor_history(self) -> None:
@@ -375,7 +375,7 @@ class RealPreprocessingRunnerIntegrationTests(unittest.TestCase):
                         [
                             "unit_id",
                             "cycle",
-                            "RUL",
+                            "life_ratio",
                             "operating_regime",
                             *(
                                 column

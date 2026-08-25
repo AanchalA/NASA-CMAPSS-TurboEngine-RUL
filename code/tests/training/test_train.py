@@ -31,7 +31,7 @@ class RandomForestTrainingTests(unittest.TestCase):
             columns = [
                 "unit_id",
                 "cycle",
-                "RUL",
+                "life_ratio",
                 "operating_regime",
                 "sensor_2",
                 "sensor_3",
@@ -40,18 +40,18 @@ class RandomForestTrainingTests(unittest.TestCase):
             ]
             pd.DataFrame(
                 [
-                    (1, 1, 30, 1, 0.0, 3.0, 0.0, 3.0),
-                    (1, 2, 20, 1, 1.0, 2.0, 0.0, 2.8),
-                    (2, 1, 10, 1, 2.0, 1.0, 1.0, 1.0),
-                    (2, 2, 0, 1, 3.0, 0.0, 1.0, 0.8),
+                    (1, 1, 0.25, 1, 0.0, 3.0, 0.0, 3.0),
+                    (1, 2, 0.50, 1, 1.0, 2.0, 0.0, 2.8),
+                    (2, 1, 0.33, 1, 2.0, 1.0, 1.0, 1.0),
+                    (2, 2, 0.67, 1, 3.0, 0.0, 1.0, 0.8),
                 ],
                 columns=columns,
             ).to_parquet(preprocessing_path / "train")
             pd.DataFrame(
                 [
-                    (3, 1, 25, 1, 0.5, 2.5, 0.5, 2.5),
-                    (3, 2, 5, 1, 2.5, 0.5, 2.0, 2.1),
-                    (3, 3, 0, 1, 3.0, 0.0, 2.5, 1.5),
+                    (3, 1, 0.25, 1, 0.5, 2.5, 0.5, 2.5),
+                    (3, 2, 0.50, 1, 2.5, 0.5, 2.0, 2.1),
+                    (3, 3, 0.75, 1, 3.0, 0.0, 2.5, 1.5),
                 ],
                 columns=columns,
             ).to_parquet(preprocessing_path / "validation")

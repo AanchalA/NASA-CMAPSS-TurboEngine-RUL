@@ -27,6 +27,14 @@ def add_rul_target(df):
     return df.withColumn("RUL", maximum_cycle - F.col("cycle"))
 
 
+def add_life_ratio_target(df):
+    return df.withColumn(
+        "life_ratio",
+        F.col("cycle").cast("double")
+        / (F.col("cycle") + F.col("RUL")).cast("double"),
+    ).drop("RUL")
+
+
 # _______________ TEST DATA LOADER _______________ 
 def load_cmapss_test_rul(spark, path):    
     target_path = Path(fspath(path))

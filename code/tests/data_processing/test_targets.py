@@ -16,6 +16,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT / "code"))
 
 from src.data_processing.data_loader import (
+    add_life_ratio_target,
     add_rul_target,
     add_test_rul_target,
     load_cmapss_test_rul,
@@ -57,6 +58,20 @@ class AddRulTargetTests(unittest.TestCase):
 
     def final_rul_dataframe(self, records: list[tuple[int, int]]):
         return self.spark.createDataFrame(records, schema=TEST_RUL_SCHEMA)
+
+    def test_life_ratio_replaces_rul_with_normalized_target(self) -> None:
+        frame = self.spark.createDataFrame(
+            [(1, 1, 3), (1, 2, 2), (1, 3, 1), (1, 4, 0)],
+            "unit_id int, cycle int, RUL int",
+        )
+
+        result = add_life_ratio_target(frame)
+
+        self.assertEqual(result.columns, ["unit_id", "cycle", "life_ratio"])
+        self.assertEqual(
+            [row["life_ratio"] for row in result.orderBy("cycle").collect()],
+            [0.25, 0.5, 0.75, 1.0],
+        )
 
     def test_simple_trajectory(self) -> None:
         original = self.dataframe([self.row(1, cycle) for cycle in range(1, 5)])

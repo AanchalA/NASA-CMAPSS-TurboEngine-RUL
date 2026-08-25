@@ -17,6 +17,7 @@ from src.data_processing import (CMAPSS_SENSOR_COLUMNS,
 from src.tracking import configure_mlflow
 from src.training.evaluation import (evaluate_predictions,
                                      evaluate_prediction_diagnostics,
+                                     life_ratio_to_rul,
                                      prepare_official_test_metadata,
                                      select_pseudo_test_endpoints)
 
@@ -63,7 +64,7 @@ def predict_sequences(model, sequences, batch_size=256):
 
 def train_lstm(subset_id, preprocessing_run_id, processed_data_dir, raw_data_dir, 
                epochs=30, batch_size=64, learning_rate=1e-3, seed=42, 
-               rul_cap=None, feature_set="base_sequence"):
+               feature_set="base_sequence"):
     
     normalized_subset = subset_id.upper()    
 
@@ -85,12 +86,9 @@ def train_lstm(subset_id, preprocessing_run_id, processed_data_dir, raw_data_dir
 
     train_sequences, train_targets = build_sliding_window_sequences(train_dataframe, feature_columns, SEQUENCE_LENGTH)
     
-    if rul_cap is not None:
-        train_targets = np.minimum(train_targets, rul_cap)
-        
     validation_metadata = select_pseudo_test_endpoints(validation_dataframe, seed=seed)
     validation_sequences = build_endpoint_sequences(validation_dataframe, validation_metadata, feature_columns, SEQUENCE_LENGTH)    
-    validation_targets = validation_metadata["RUL"].to_numpy()
+    validation_targets = validation_metadata["life_ratio"].to_numpy()
 
     test_metadata = prepare_official_test_metadata(test_dataframe, normalized_subset, raw_data_dir)
     test_sequences = build_endpoint_sequences(test_dataframe, test_metadata, feature_columns, SEQUENCE_LENGTH)
@@ -106,7 +104,7 @@ def train_lstm(subset_id, preprocessing_run_id, processed_data_dir, raw_data_dir
     loss_function = nn.MSELoss()
 
     mlflow.set_experiment(getenv("CMAPSS_MLFLOW_TRAINING_EXPERIMENT", "cmapss-training"))    
-    target_name = "raw_rul" if rul_cap is None else f"capped_rul_{rul_cap:g}"
+    target_name = "life_ratio"
     
     with mlflow.start_run(run_name=f"{normalized_subset}-lstm-{feature_set}-{target_name}") as run:
         print(f"[{normalized_subset}] fitting LSTM on {len(dataset):,} windows, {SEQUENCE_LENGTH} cycles and {len(feature_columns)} features "
@@ -129,10 +127,14 @@ def train_lstm(subset_id, preprocessing_run_id, processed_data_dir, raw_data_dir
             print(f"[{normalized_subset}] epoch {epoch:02d}/{epochs}: mse={epoch_loss:.4f}", flush=True)
 
         validation_predictions = predict_sequences(model, validation_sequences)
-        validation_metrics = evaluate_predictions(validation_targets, validation_predictions)
+        validation_rul = life_ratio_to_rul(validation_metadata["cycle"], validation_targets)
+        predicted_validation_rul = life_ratio_to_rul(validation_metadata["cycle"], validation_predictions)
+        validation_metrics = evaluate_predictions(validation_rul, predicted_validation_rul)
         
         test_predictions = predict_sequences(model, test_sequences)
-        test_metrics = evaluate_predictions(test_metadata["RUL"], test_predictions)
+        test_rul = life_ratio_to_rul(test_metadata["cycle"], test_metadata["life_ratio"])
+        predicted_test_rul = life_ratio_to_rul(test_metadata["cycle"], test_predictions)
+        test_metrics = evaluate_predictions(test_rul, predicted_test_rul)
         
         validation_diagnostics, validation_diagnostic_metrics = evaluate_prediction_diagnostics(validation_metadata, validation_predictions)
         validation_metrics.update(validation_diagnostic_metrics)
@@ -150,7 +152,6 @@ def train_lstm(subset_id, preprocessing_run_id, processed_data_dir, raw_data_dir
                            "num_layers": 1,
                            "dropout": 0,
                            "target": target_name,
-                           "rul_cap": "none" if rul_cap is None else rul_cap,
                            "epochs": epochs,
                            "batch_size": batch_size,
                            "learning_rate": learning_rate,

@@ -13,7 +13,6 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--learning-rate", type=float, default=1e-3)
-    parser.add_argument("--rul-cap", type=float)
     return parser.parse_args()
 
 
@@ -28,7 +27,6 @@ if __name__ == "__main__":
                         raw_data_dir=args.raw_data_dir,
                         epochs=args.epochs,
                         batch_size=args.batch_size,
-                        learning_rate=args.learning_rate,
-                        rul_cap=args.rul_cap)
+                        learning_rate=args.learning_rate)
     
     print(result)

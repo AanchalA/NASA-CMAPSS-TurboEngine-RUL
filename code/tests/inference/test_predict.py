@@ -99,7 +99,7 @@ class PredictionTests(unittest.TestCase):
             ),
         )
         model = MagicMock()
-        model.predict.return_value = [42.5]
+        model.predict.return_value = [0.5]
         load_training_model.return_value = model
         load_training_feature_columns.return_value = ["sensor_2"]
 
@@ -109,7 +109,7 @@ class PredictionTests(unittest.TestCase):
               "setting_3": 100.0, "sensor_2": 14.0}],
         )
 
-        self.assertEqual(prediction, 42.5)
+        self.assertEqual(prediction, 1.0)
         load_training_model.assert_called_once_with("training-run")
         load_training_feature_columns.assert_called_once_with("training-run")
 
@@ -144,7 +144,7 @@ class PredictionTests(unittest.TestCase):
             ),
         )
         model = MagicMock()
-        model.predict.return_value = np.array([17.25], dtype=np.float32)
+        model.predict.return_value = np.array([0.75], dtype=np.float32)
         load_training_model.return_value = model
         load_training_feature_columns.return_value = ["sensor_2"]
 
@@ -161,7 +161,7 @@ class PredictionTests(unittest.TestCase):
             ],
         )
 
-        self.assertAlmostEqual(prediction, 17.25)
+        self.assertAlmostEqual(prediction, 1.0)
         model_input = model.predict.call_args.args[0]
         self.assertEqual(model_input.shape, (1, 2, 1))
         self.assertEqual(model_input.dtype, np.float32)

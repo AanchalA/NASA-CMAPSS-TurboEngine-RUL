@@ -27,7 +27,13 @@ from src.data_processing.scaling import (RegimeSensorScaler,
 from src.data_processing.constants import CMAPSS_SENSOR_COLUMNS, SUPPORTED_SUBSETS
 from src.data_processing.split import split_train_validation_by_unit
 from src.data_processing.validation import validate_cmapss_data
-from src.data_processing.data_loader import add_test_rul_target, load_cmapss_test_rul, add_rul_target, load_cmapss_raw
+from src.data_processing.data_loader import (
+    add_life_ratio_target,
+    add_rul_target,
+    add_test_rul_target,
+    load_cmapss_raw,
+    load_cmapss_test_rul,
+)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -79,7 +85,13 @@ def frame_counts(df):
 
 
 def finalize_preprocessing_output(df, sensor_columns, include_temporal_features=False):
-    output = df.select("unit_id", "cycle", "RUL", F.col("regime").alias("operating_regime"), *sensor_columns)
+    output = add_life_ratio_target(df).select(
+        "unit_id",
+        "cycle",
+        "life_ratio",
+        F.col("regime").alias("operating_regime"),
+        *sensor_columns,
+    )
     
     if not include_temporal_features:
         return output

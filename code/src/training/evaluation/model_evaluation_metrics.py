@@ -1,6 +1,14 @@
 from math import expm1, fsum
 
+import numpy as np
 from sklearn.metrics import mean_absolute_error, root_mean_squared_error
+
+
+def life_ratio_to_rul(cycle, life_ratio, minimum_life_ratio=1e-6):
+    cycles = np.asarray(cycle, dtype=float)
+    ratios = np.clip(np.asarray(life_ratio, dtype=float), minimum_life_ratio, 1.0)
+    remaining_life = cycles * (1.0 / ratios - 1.0)
+    return float(remaining_life) if remaining_life.ndim == 0 else remaining_life
 
 
 def nasa_score_contribution(error):

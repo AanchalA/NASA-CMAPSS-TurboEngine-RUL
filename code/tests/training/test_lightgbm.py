@@ -6,7 +6,7 @@ from src.training.tree_models.train_lightgbm import train_lightgbm
 
 class LightGBMTrainingTests(unittest.TestCase):
     @patch("src.training.tree_models.train_lightgbm.train_tabular_model")
-    def test_uses_fixed_parameters_and_capped_target(self, train_tabular_model_mock):
+    def test_uses_fixed_parameters(self, train_tabular_model_mock):
         train_tabular_model_mock.return_value = "training-run"
 
         run_id = train_lightgbm("FD003", "preprocessing-run", "processed")
@@ -14,7 +14,7 @@ class LightGBMTrainingTests(unittest.TestCase):
         self.assertEqual(run_id, "training-run")
         arguments = train_tabular_model_mock.call_args.kwargs
         self.assertEqual(arguments["model_name"], "lightgbm")
-        self.assertEqual(arguments["rul_cap"], 125)
+        self.assertNotIn("rul_cap", arguments)
         self.assertEqual(arguments["model"].n_estimators, 500)
         self.assertEqual(arguments["model"].learning_rate, 0.05)
         self.assertEqual(arguments["model"].num_leaves, 31)

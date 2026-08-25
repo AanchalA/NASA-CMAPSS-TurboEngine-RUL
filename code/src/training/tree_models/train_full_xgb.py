@@ -13,6 +13,7 @@ from src.data_processing.constants import SUPPORTED_SUBSETS
 from src.tracking import configure_mlflow
 from src.training.evaluation import (evaluate_prediction_diagnostics,
                                      evaluate_predictions,
+                                     life_ratio_to_rul,
                                      prepare_pseudo_test_validation)
 from src.training.tree_models.train_xgboost import DEFAULT_PARAMETERS
 
@@ -20,7 +21,7 @@ from src.training.tree_models.train_xgboost import DEFAULT_PARAMETERS
 TEMPORAL_FEATURE_MARKERS = ("_lag_", "_diff_", "_rolling_", "_ewma")
 
 
-def train_full_xgboost(preprocessing_run_ids, processed_data_dir, parameters=None, rul_cap=125):
+def train_full_xgboost(preprocessing_run_ids, processed_data_dir, parameters=None):
     missing_subsets = set(SUPPORTED_SUBSETS) - preprocessing_run_ids.keys()
     if missing_subsets:
         raise ValueError(f"Missing preprocessing runs: {sorted(missing_subsets)}")
@@ -76,19 +77,18 @@ def train_full_xgboost(preprocessing_run_ids, processed_data_dir, parameters=Non
     X_validation = pd.concat(validation_inputs, ignore_index=True)
     y_validation = pd.concat(validation_targets, ignore_index=True)
     metadata = pd.concat(validation_metadata, ignore_index=True)
-    if rul_cap is not None:
-        y_train = np.minimum(y_train, rul_cap)
-
     model = XGBRegressor(**(parameters or DEFAULT_PARAMETERS))
     model.fit(X_train, y_train)
     predictions = model.predict(X_validation)
-    metrics = evaluate_predictions(y_validation, predictions)
+    validation_rul = life_ratio_to_rul(metadata["cycle"], y_validation)
+    predicted_validation_rul = life_ratio_to_rul(metadata["cycle"], predictions)
+    metrics = evaluate_predictions(validation_rul, predicted_validation_rul)
     diagnostics, tail_metrics = evaluate_prediction_diagnostics(metadata, predictions)
     metrics.update(tail_metrics)
 
     configure_mlflow()
     mlflow.set_experiment(getenv("CMAPSS_MLFLOW_TRAINING_EXPERIMENT", "cmapss-training"))
-    target_name = "raw_rul" if rul_cap is None else f"capped_rul_{rul_cap:g}"
+    target_name = "life_ratio"
 
     with mlflow.start_run(run_name=f"all-xgboost-baseline-{target_name}") as run:
         mlflow.log_params(model.get_params())
@@ -97,7 +97,6 @@ def train_full_xgboost(preprocessing_run_ids, processed_data_dir, parameters=Non
                            "preprocessing_run_ids": json.dumps(preprocessing_run_ids, sort_keys=True),
                            "feature_count": len(model_feature_columns),
                            "target": target_name,
-                           "rul_cap": "none" if rul_cap is None else rul_cap,
                            "validation_protocol": "pooled_pseudo_test_endpoint",
                            "validation_cutoff_seed": 42,
                            "validation_minimum_observed_fraction": 0.5,
@@ -120,6 +119,5 @@ if __name__ == "__main__":
             "FD004": "432ff4df92c7451b97e52832049b5a70",
         },
         processed_data_dir="Data/processed",
-        rul_cap=125,
     )
     print({"training_run_id": training_run_id})

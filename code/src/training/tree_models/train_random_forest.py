@@ -11,10 +11,10 @@ DEFAULT_PARAMETERS= {
 }
 
 
-def train_random_forest(subset_id, preprocessing_run_id, processed_data_dir, parameters=None, rul_cap=None):
+def train_random_forest(subset_id, preprocessing_run_id, processed_data_dir, parameters=None):
     
     model = RandomForestRegressor(**(parameters or DEFAULT_PARAMETERS))
     
     return train_tabular_model(model=model, model_name="random-forest", subset_id=subset_id,
                                preprocessing_run_id=preprocessing_run_id,
-                               processed_data_dir=processed_data_dir,rul_cap=rul_cap)
+                               processed_data_dir=processed_data_dir)

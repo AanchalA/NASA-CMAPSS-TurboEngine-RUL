@@ -13,10 +13,10 @@ DEFAULT_PARAMETERS = {"objective": "reg:squarederror",
                       "n_jobs": -1}
 
 
-def train_xgboost(subset_id, preprocessing_run_id, processed_data_dir, parameters=None, rul_cap=125):
+def train_xgboost(subset_id, preprocessing_run_id, processed_data_dir, parameters=None):
     
     model = XGBRegressor(**(parameters or DEFAULT_PARAMETERS))
     
     return train_tabular_model(model=model, model_name="xgboost", subset_id=subset_id, 
                                preprocessing_run_id=preprocessing_run_id, 
-                               processed_data_dir=processed_data_dir, rul_cap=rul_cap)
+                               processed_data_dir=processed_data_dir)

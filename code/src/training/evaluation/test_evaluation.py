@@ -11,6 +11,7 @@ from src.data_processing.constants import SUPPORTED_SUBSETS
 from src.training.evaluation.engine_endpoint_evaluation import (evaluate_prediction_diagnostics,
                                                                 prepare_official_test_metadata)
 from src.training.evaluation.model_evaluation_metrics import evaluate_predictions
+from src.training.evaluation.model_evaluation_metrics import life_ratio_to_rul
 
 
 def prepare_test_data(subset_id, preprocessing_run_id, feature_columns, processed_data_dir, raw_data_dir):
@@ -18,14 +19,18 @@ def prepare_test_data(subset_id, preprocessing_run_id, feature_columns, processe
     test_dataframe = pd.read_parquet(Path(processed_data_dir) / subset_id / preprocessing_run_id / "test")
     test_metadata = prepare_official_test_metadata(test_dataframe, subset_id, raw_data_dir)
 
-    final_cycle_rows = test_dataframe.merge(test_metadata, on=["unit_id", "cycle"], how="inner",
-                                            suffixes=("", "_official"))
-    final_cycle_rows["RUL"] = final_cycle_rows.pop("RUL_official")
+    final_cycle_rows = test_dataframe.merge(
+        test_metadata.loc[:, ["unit_id", "cycle"]],
+        on=["unit_id", "cycle"],
+        how="inner",
+    )
 
     X_test = final_cycle_rows.loc[:, feature_columns]
-    y_test = final_cycle_rows.loc[:, "RUL"]
+    y_test = life_ratio_to_rul(
+        final_cycle_rows["cycle"], final_cycle_rows["life_ratio"]
+    )
 
-    metadata = final_cycle_rows.loc[:, ["unit_id", "cycle", "RUL"]]
+    metadata = final_cycle_rows.loc[:, ["unit_id", "cycle", "life_ratio"]]
 
     return X_test, y_test, metadata
 
@@ -55,13 +60,14 @@ def evaluate_test_data(subset_id, training_run_id, processed_data_dir, raw_data_
                                                  processed_data_dir=processed_data_dir,
                                                  raw_data_dir=raw_data_dir)
 
-    predictions = model.predict(X_test)
+    life_ratio_predictions = model.predict(X_test)
+    predictions = life_ratio_to_rul(metadata["cycle"], life_ratio_predictions)
     metrics = evaluate_predictions(y_test, predictions)
 
     for metric_name, value in metrics.items():
         client.log_metric(training_run_id, f"test_{metric_name}", value)
 
-    diagnostics, tail_metrics = evaluate_prediction_diagnostics(metadata, predictions)
+    diagnostics, tail_metrics = evaluate_prediction_diagnostics(metadata, life_ratio_predictions)
     metrics.update(tail_metrics)
 
     for metric_name, value in tail_metrics.items():

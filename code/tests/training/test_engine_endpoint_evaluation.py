@@ -9,7 +9,7 @@ class PseudoTestValidationTests(unittest.TestCase):
     def test_selects_one_reproducible_prefailure_endpoint_per_engine(self):
         dataframe = pd.DataFrame(
             [
-                {"unit_id": unit, "cycle": cycle, "RUL": 10 - cycle, "sensor": cycle * unit}
+                {"unit_id": unit, "cycle": cycle, "life_ratio": cycle / 10, "sensor": cycle * unit}
                 for unit in (1, 2)
                 for cycle in range(1, 11)
             ]
@@ -27,19 +27,20 @@ class PseudoTestValidationTests(unittest.TestCase):
         pd.testing.assert_frame_equal(metadata_first, metadata_second)
         self.assertEqual(metadata_first["unit_id"].tolist(), [1, 2])
         self.assertTrue(metadata_first["cycle"].between(5, 9).all())
-        self.assertTrue((metadata_first["RUL"] == 10 - metadata_first["cycle"]).all())
+        self.assertTrue((metadata_first["life_ratio"] == metadata_first["cycle"] / 10).all())
 
     def test_builds_diagnostics_sorted_by_nasa_contribution(self):
         metadata = pd.DataFrame(
-            {"unit_id": [1, 2], "cycle": [50, 60], "RUL": [10, 20]}
+            {"unit_id": [1, 2], "cycle": [50, 60], "life_ratio": [0.4, 0.6]}
         )
-        diagnostics, metrics = evaluate_prediction_diagnostics(metadata, [11, 50])
+        diagnostics, metrics = evaluate_prediction_diagnostics(metadata, [0.5, 0.9])
         contributions = diagnostics["nasa_contribution"].tolist()
 
         self.assertEqual(diagnostics["unit_id"].tolist(), [2, 1])
-        self.assertEqual(diagnostics["error"].tolist(), [30, 1])
+        self.assertAlmostEqual(diagnostics["error"].tolist()[0], -100 / 3)
         self.assertGreater(contributions[0], contributions[1])
-        self.assertEqual(metrics["worst_positive_error"], 30.0)
+        self.assertAlmostEqual(metrics["worst_positive_error"], 0.0)
+        self.assertAlmostEqual(metrics["worst_negative_error"], -100 / 3)
 
 
 if __name__ == "__main__":

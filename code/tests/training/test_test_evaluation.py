@@ -16,7 +16,7 @@ class TestEvaluationTests(unittest.TestCase):
     @patch("src.training.evaluation.test_evaluation.load_training_model")
     @patch("src.training.evaluation.test_evaluation.MlflowClient")
     @patch("src.training.evaluation.test_evaluation.configure_mlflow")
-    def test_uses_final_cycles_and_official_rul(
+    def test_uses_final_cycles_and_life_ratio(
         self,
         configure_mlflow,
         mlflow_client,
@@ -35,7 +35,7 @@ class TestEvaluationTests(unittest.TestCase):
             )
         )
         model = MagicMock()
-        model.predict.return_value = [20.0, 10.0]
+        model.predict.return_value = [0.7, 0.9]
         load_training_model.return_value = model
         load_training_feature_columns.return_value = ["sensor_2", "sensor_3"]
 
@@ -51,12 +51,12 @@ class TestEvaluationTests(unittest.TestCase):
             preprocessing_path.mkdir(parents=True)
             pd.DataFrame(
                 [
-                    (1, 1, 999, 0.1, 0.2),
-                    (1, 2, 999, 0.3, 0.4),
-                    (2, 1, 999, 0.5, 0.6),
-                    (2, 3, 999, 0.7, 0.8),
+                    (1, 1, 0.5, 0.1, 0.2),
+                    (1, 2, 0.6, 0.3, 0.4),
+                    (2, 1, 0.7, 0.5, 0.6),
+                    (2, 3, 0.8, 0.7, 0.8),
                 ],
-                columns=["unit_id", "cycle", "RUL", "sensor_2", "sensor_3"],
+                columns=["unit_id", "cycle", "life_ratio", "sensor_2", "sensor_3"],
             ).to_parquet(preprocessing_path / "test")
 
             metrics = evaluate_test_data(
@@ -68,11 +68,10 @@ class TestEvaluationTests(unittest.TestCase):
 
         X_test = model.predict.call_args.args[0]
         self.assertEqual(X_test.values.tolist(), [[0.3, 0.4], [0.7, 0.8]])
-        self.assertAlmostEqual(metrics["rmse"], 5.0)
-        self.assertAlmostEqual(metrics["mae"], 5.0)
-        self.assertAlmostEqual(
-            metrics["nasa_score"], math.expm1(5 / 13) + math.expm1(5 / 10)
-        )
+        expected_errors = [2 * (1 / 0.7 - 1) - 2 * (1 / 0.6 - 1),
+                           3 * (1 / 0.9 - 1) - 3 * (1 / 0.8 - 1)]
+        self.assertAlmostEqual(metrics["rmse"], math.sqrt(sum(error ** 2 for error in expected_errors) / 2))
+        self.assertAlmostEqual(metrics["mae"], sum(abs(error) for error in expected_errors) / 2)
         client.log_metric.assert_has_calls(
             [
                 call("training-run", "test_rmse", metrics["rmse"]),

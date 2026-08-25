@@ -8,7 +8,7 @@ from src.training.lstm import predict_sequences
 
 
 class LSTMTests(unittest.TestCase):
-    def test_predicts_one_rul_value_per_sequence(self):
+    def test_predicts_one_life_ratio_per_sequence(self):
         model = LSTMRegressor(feature_count=3)
         sequences = np.zeros((4, 30, 3), dtype=np.float32)
 

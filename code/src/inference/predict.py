@@ -8,6 +8,7 @@ from src.data_processing import add_pandas_temporal_features
 from src.data_processing.constants import SUPPORTED_SUBSETS
 from src.data_processing.scaler_state import RegimeSensorScaler
 from src.tracking import configure_mlflow, load_preprocessing_state, load_training_feature_columns, load_training_model
+from src.training.evaluation import life_ratio_to_rul
 
 
 def process_observations(observations, preprocessing_run_id, feature_columns, sequence_length=None):
@@ -91,4 +92,6 @@ def predict_rul(subset_id, training_run_id, observations):
     model_input = (processed_observations.to_numpy(dtype=np.float32)[None, ...]
                    if model_type == LSTM_MODEL_TYPE else processed_observations)
     
-    return float(model.predict(model_input)[0])
+    predicted_life_ratio = float(model.predict(model_input)[0])
+    current_cycle = max(observation["cycle"] for observation in observations)
+    return life_ratio_to_rul(current_cycle, predicted_life_ratio)

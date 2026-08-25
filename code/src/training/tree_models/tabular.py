@@ -6,18 +6,18 @@ import mlflow
 import mlflow.lightgbm as mlflow_lightgbm
 import mlflow.sklearn as mlflow_sklearn
 import mlflow.xgboost as mlflow_xgboost
-import numpy as np
 import pandas as pd
 
 from src.data_processing import select_tabular_model_inputs
 from src.tracking import configure_mlflow
 from src.training.evaluation import (evaluate_predictions, 
                                      evaluate_prediction_diagnostics,
+                                     life_ratio_to_rul,
                                      prepare_pseudo_test_validation)
 
 
 
-def train_tabular_model( model, model_name, subset_id, preprocessing_run_id, processed_data_dir, rul_cap=None):
+def train_tabular_model(model, model_name, subset_id, preprocessing_run_id, processed_data_dir):
     
     normalized_subset = subset_id.upper()    
     
@@ -33,13 +33,10 @@ def train_tabular_model( model, model_name, subset_id, preprocessing_run_id, pro
     feature_set = "temporal" if any(marker in column for column in feature_columns 
                                     for marker in ["_lag_", "_diff_", "_rolling_", "_ewma"]) else "baseline"
     
-    if rul_cap is not None:
-        y_train = np.minimum(y_train, rul_cap)
-
     X_validation_rows, y_validation_rows = select_tabular_model_inputs(validation_dataframe, feature_columns)    
     X_validation, y_validation, validation_metadata = prepare_pseudo_test_validation(validation_dataframe, feature_columns)
     
-    target_name = "raw_rul" if rul_cap is None else f"capped_rul_{rul_cap:g}"
+    target_name = "life_ratio"
 
     mlflow.set_experiment(getenv("CMAPSS_MLFLOW_TRAINING_EXPERIMENT", "cmapss-training"))
     
@@ -51,10 +48,16 @@ def train_tabular_model( model, model_name, subset_id, preprocessing_run_id, pro
 
         validation_predictions = model.predict(X_validation)
         diagnostics, tail_metrics = evaluate_prediction_diagnostics(validation_metadata, validation_predictions)
-        metrics = evaluate_predictions(y_validation, validation_predictions)
+        validation_rul = life_ratio_to_rul(validation_metadata["cycle"], y_validation)
+        predicted_validation_rul = life_ratio_to_rul(validation_metadata["cycle"], validation_predictions)
+        metrics = evaluate_predictions(validation_rul, predicted_validation_rul)
         metrics.update(tail_metrics)
         
-        row_metrics = evaluate_predictions(y_validation_rows, model.predict(X_validation_rows))
+        validation_row_rul = life_ratio_to_rul(validation_dataframe["cycle"], y_validation_rows)
+        predicted_validation_row_rul = life_ratio_to_rul(
+            validation_dataframe["cycle"], model.predict(X_validation_rows)
+        )
+        row_metrics = evaluate_predictions(validation_row_rul, predicted_validation_row_rul)
 
         mlflow.log_params(model.get_params())
         mlflow.log_params({"model_type": type(model).__name__,
@@ -62,7 +65,6 @@ def train_tabular_model( model, model_name, subset_id, preprocessing_run_id, pro
                            "preprocessing_run_id": preprocessing_run_id,
                            "feature_count": len(feature_columns),
                            "target": target_name,
-                           "rul_cap": "none" if rul_cap is None else rul_cap,
                            "validation_protocol": "pseudo_test_endpoint",
                            "validation_cutoff_seed": 42,
                            "validation_minimum_observed_fraction": 0.5,

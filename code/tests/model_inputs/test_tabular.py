@@ -16,23 +16,23 @@ from src.data_processing import select_tabular_model_inputs
 class TabularInputsTests(unittest.TestCase):
     def test_selects_ordered_features_and_target_without_leakage(self) -> None:
         dataframe = pd.DataFrame({
-            "unit_id": [1, 1], "cycle": [1, 2], "RUL": [125, 124],
+            "unit_id": [1, 1], "cycle": [1, 2], "life_ratio": [0.25, 0.5],
             "sensor_2": [0.2, 0.5], "sensor_3": [0.3, 0.6], "sensor_4": [0.4, 0.7],
         })
         retained = ["sensor_4", "sensor_2", "sensor_3"]
         features, target = select_tabular_model_inputs(dataframe, retained)
 
         self.assertEqual(list(features.columns), retained)
-        self.assertEqual(target.tolist(), [125, 124])
+        self.assertEqual(target.tolist(), [0.25, 0.5])
         self.assertEqual(features.iloc[0].tolist(), [0.4, 0.2, 0.3])
-        self.assertTrue({"unit_id", "cycle", "RUL"}.isdisjoint(features.columns))
+        self.assertTrue({"unit_id", "cycle", "life_ratio"}.isdisjoint(features.columns))
 
     def test_infers_scaled_and_temporal_features_from_processed_schema(self) -> None:
         dataframe = pd.DataFrame(
             {
                 "unit_id": [1],
                 "cycle": [2],
-                "RUL": [10],
+                "life_ratio": [0.5],
                 "operating_regime": [1],
                 "sensor_2": [0.5],
                 "sensor_2_lag_1": [0.2],
@@ -54,7 +54,7 @@ class TabularInputsTests(unittest.TestCase):
                 "sensor_2_ewma",
             ],
         )
-        self.assertEqual(target.tolist(), [10])
+        self.assertEqual(target.tolist(), [0.5])
 
 
 if __name__ == "__main__":

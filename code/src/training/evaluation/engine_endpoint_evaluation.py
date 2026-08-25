@@ -1,9 +1,9 @@
 import hashlib
-import pandas as pd
 from math import ceil
-from pathlib import Path
 
-from src.training.evaluation.model_evaluation_metrics import nasa_score_contribution
+import pandas as pd
+
+from src.training.evaluation.model_evaluation_metrics import life_ratio_to_rul, nasa_score_contribution
 
 
 def deterministic_cutoff(unit_id, first_cycle, final_cycle, seed):
@@ -43,14 +43,19 @@ def prepare_pseudo_test_validation(validation_dataframe, feature_columns, seed=4
     endpoint_dataframe = select_pseudo_test_endpoints(validation_dataframe, seed=seed, minimum_observed_fraction=minimum_observed_fraction)
     
     return (endpoint_dataframe.loc[:, feature_columns], 
-            endpoint_dataframe.loc[:, "RUL"], 
-            endpoint_dataframe.loc[:, ["unit_id", "cycle", "RUL"]])
+            endpoint_dataframe.loc[:, "life_ratio"],
+            endpoint_dataframe.loc[:, ["unit_id", "cycle", "life_ratio"]])
 
 
 def evaluate_prediction_diagnostics(metadata, predictions):
-    
-    diagnostics = metadata.rename(columns={"cycle": "cutoff_cycle", "RUL": "true_RUL"}).copy()
-    diagnostics["prediction"] = predictions
+
+    diagnostics = metadata.rename(columns={"cycle": "cutoff_cycle"}).copy()
+    diagnostics["true_RUL"] = life_ratio_to_rul(
+        diagnostics["cutoff_cycle"], diagnostics.pop("life_ratio")
+    )
+    diagnostics["prediction"] = life_ratio_to_rul(
+        diagnostics["cutoff_cycle"], predictions
+    )
     diagnostics["error"] = diagnostics["prediction"] - diagnostics["true_RUL"]
     diagnostics["nasa_contribution"] = diagnostics["error"].map(nasa_score_contribution)
     diagnostics = diagnostics.sort_values("nasa_contribution", ascending=False).reset_index(drop=True)
@@ -66,9 +71,9 @@ def evaluate_prediction_diagnostics(metadata, predictions):
 
 
 def prepare_official_test_metadata(test_dataframe, subset_id, raw_data_dir):
-    
-    final_cycles = (test_dataframe.sort_values(["unit_id", "cycle"]).groupby("unit_id", sort=True).tail(1)[["unit_id", "cycle"]])
-    official_rul = pd.read_csv( Path(raw_data_dir) / f"RUL_{subset_id}.txt", sep=r"\s+", header=None, names=["RUL"])
-    official_rul.insert(0, "unit_id", range(1, len(official_rul) + 1))
-    
-    return final_cycles.merge(official_rul, on="unit_id", how="inner", validate="one_to_one")
+    return (
+        test_dataframe.sort_values(["unit_id", "cycle"])
+        .groupby("unit_id", sort=True)
+        .tail(1)[["unit_id", "cycle", "life_ratio"]]
+        .reset_index(drop=True)
+    )

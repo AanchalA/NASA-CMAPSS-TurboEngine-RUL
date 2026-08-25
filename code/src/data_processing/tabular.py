@@ -3,7 +3,7 @@ import pandas as pd
 from src.data_processing.constants import DEFAULT_EWMA_ALPHA, DEFAULT_LAGS, DEFAULT_ROLLING_WINDOWS
 
 
-TABULAR_METADATA_COLUMNS = frozenset(("unit_id", "cycle", "RUL", "operating_regime"))
+TABULAR_METADATA_COLUMNS = frozenset(("unit_id", "cycle", "life_ratio", "operating_regime"))
 
 
 def add_pandas_temporal_features(dataframe, sensor_columns):
@@ -40,4 +40,4 @@ def add_pandas_temporal_features(dataframe, sensor_columns):
 def select_tabular_model_inputs(dataframe, feature_columns=None):
     if feature_columns is None:
         feature_columns = [column for column in dataframe.columns if column not in TABULAR_METADATA_COLUMNS]
-    return dataframe.loc[:, feature_columns], dataframe.loc[:, "RUL"]
+    return dataframe.loc[:, feature_columns], dataframe.loc[:, "life_ratio"]
