@@ -14,10 +14,10 @@ from pyspark.sql import SparkSession
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT / "code"))
 
-from src.data_processing import (  # noqa: E402
+from src.data_processing import add_pandas_temporal_features  # noqa: E402
+from src.data_processing.feature_engineering import (  # noqa: E402
     add_ewma_features,
     add_lag_difference_features,
-    add_pandas_temporal_features,
     rolling_slope_and_statistics_features,
 )
 

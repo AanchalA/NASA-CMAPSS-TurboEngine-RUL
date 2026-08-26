@@ -12,7 +12,7 @@ from pyspark.sql import SparkSession
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT / "code"))
 
-from src.data_processing import add_ewma_features
+from src.data_processing.feature_engineering import add_ewma_features
 
 
 class EwmaFeatureTests(unittest.TestCase):
